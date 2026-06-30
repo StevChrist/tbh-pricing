@@ -1,129 +1,95 @@
 # TBH Inventory Price Tracker
 
-> Full-stack portfolio app to track Task Bar Hero in-game inventory with live Steam Market prices (IDR & USD), price alerts, and automated refresh.
+App Link : http://localhost:3000
 
-![Tech Stack](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi)
-![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)
-![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite)
+This project focuses on designing and implementing a **Task Bar Hero (TBH) Inventory Price Tracker** to support **monitoring, valuation, and alerting** for *Task Bar Hero* in-game items traded on the Steam Community Market.
 
-## Features
+The system tracks dynamic price fluctuations in IDR and USD, calculates cumulative portfolio values, and triggers custom price alerts.
 
-- 📦 **Inventory Management** — Add/remove TBH items from your personal inventory
-- 💰 **Dual Currency Prices** — IDR & USD displayed side-by-side (auto-fetched from Steam Market)
-- 🔄 **Auto-Refresh** — APScheduler refreshes all prices every 15 minutes
-- 🔔 **Price Alerts** — Set buy/sell/% change targets and get notified when triggered
-- 💬 **Notification Inbox** — In-app popup carousel + message tab
-- 📊 **Price History Chart** — Dual-axis line chart (IDR left, USD right)
-- 📤 **Export CSV** — Download full inventory + price data
-- 🌙 **Dark / Light Mode** — Default dark, toggle in top bar
-- 📱 **Fully Responsive** — Table view on desktop, card view on mobile
+---
 
-## Tech Stack
+## 🎯 Project Objectives
+- Centralize in-game item inventory management for players
+- Enable analytical tracking of items and cumulative values
+- Provide real-time price updates (IDR & USD) and automated price synchronization
+- Support price threshold notifications (alerts) to aid trading decisions
 
-| Layer | Technology |
-|---|---|
-| Backend | FastAPI, SQLAlchemy 2.x, SQLite, APScheduler, httpx |
-| Frontend | Next.js 14 App Router, TypeScript, Tailwind CSS, shadcn/ui |
-| Auth | JWT in httpOnly cookies, bcrypt passwords |
-| Deploy | Docker + Docker Compose |
+---
 
-## Quick Start
+## 🏗️ Database Architecture & ERD
+This project follows a relational database schema designed to support user accounts, inventory portfolios, historical pricing logs, and system settings.
 
-### 1. Clone & setup
+### 📊 Database Schema
+The database is structured with the following key tables:
 
-```bash
-git clone <repo-url>
-cd TBH-Price
-cp .env.example .env
-# Edit .env and set SECRET_KEY to a strong random string
-```
+**User & Portfolio Tables**
+- `users` — Represents registered user accounts
+- `inventory_items` — Represents items added to user portfolios (quantity, custom notes)
 
-### 2. Run with Docker Compose
+**Item & Pricing Tables**
+- `master_items` — Canonical registry of TBH items
+- `market_summary` — Latest pricing, volume, and last check times from Steam
+- `price_history` — Historical price logs for charting
 
-```bash
-docker compose up --build
-```
+**Alerts & Logging Tables**
+- `price_alerts` — Configured price thresholds (buy/sell targets)
+- `notifications` — Mailbox warnings and system messages
+- `sync_logs` — Logs history of background price synchronizations
 
-- Backend API: http://localhost:8000
-- Frontend: http://localhost:3000
-- API Docs (Swagger): http://localhost:8000/docs
+![Database ERD](Design/erd.png)
 
-### 3. Run locally (development)
+---
 
-**Backend:**
-```bash
-cd backend
-py -m pip install -r requirements.txt
-py -m uvicorn app.main:app --reload --port 8000
-```
+## 🔄 ETL & Data Flow
+The system implements a continuous data flow process:
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
+1. **Extract & Seed**  
+   Fetches the global catalogue of TBH items from the Steam Community Market and initializes the `master_items` registry.
 
-## First-Time Setup
+2. **Dynamic Sync**  
+   - A background scheduler runs every 30 minutes to fetch live prices for all tracked items.
+   - Cleanses price formats and stores them in both IDR (Rupiah) and USD.
+   - Saves records into `price_history` for line charting.
 
-1. Register an account at http://localhost:3000/register
-2. Go to **Browse Items** → click **Sync from Steam**
-   - This fetches all TBH items from Steam Market (takes ~1-2 min due to rate limiting)
-3. Browse and add items to your inventory
-4. Prices refresh automatically every 15 minutes, or click **Refresh All** manually
+3. **Alert Evaluation**  
+   - Immediately after price updates, the system scans configured `price_alerts`.
+   - If a threshold is crossed, a new record is created in `notifications` to alert the user.
 
-## Project Structure
+---
 
-```
-TBH-Price/
-├── backend/
-│   ├── app/
-│   │   ├── api/routes/     # 7 route files
-│   │   ├── core/           # steam.py, scheduler.py, security.py, alert_checker.py
-│   │   ├── db/             # models (7 tables), database, crud
-│   │   └── schemas/        # Pydantic v2 schemas
-│   ├── data/               # tbh_items_master.json (auto-generated)
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── app/            # Next.js App Router pages
-│       ├── components/     # UI components
-│       ├── lib/            # api.ts, currency.ts, utils.ts
-│       └── types/          # TypeScript interfaces
-├── docker-compose.yml
-└── .env.example
-```
+## 🚀 Documentation
 
-## API Overview
+### 💻 User Interface (UI)
 
-Base URL: `http://localhost:8000/api/v1`
+#### 📊 Dashboard Page
+Shows cumulative inventory values, change rates, latest price updates, recent notifications, and the price alert history chart.
+![Dashboard Page](Design/Result%20Design/Dashboard.png)
 
-| Method | Path | Description |
-|---|---|---|
-| POST | /auth/register | Register new user |
-| POST | /auth/login | Login (sets httpOnly cookie) |
-| GET | /items | Browse master items (paginated) |
-| GET | /items/search?q= | Autocomplete search |
-| POST | /items/seed | Fetch items from Steam Market |
-| GET | /inventory | List inventory with prices |
-| POST | /inventory | Add item to inventory |
-| POST | /inventory/bulk | Bulk add items |
-| POST | /prices/refresh | Refresh all prices |
-| GET | /prices/{id}/history | Price history for chart |
-| POST | /alerts | Create price alert |
-| GET | /notifications/unread | Get unread notifications |
-| GET | /export/csv | Download inventory as CSV |
+#### 📦 Inventory Page
+Manage items, quantities, custom notes, edit details, set alerts, or delete items via a custom Portal-rendered verification modal.
+![Inventory Page](Design/Result%20Design/Inventory.png)
 
-Full documentation: http://localhost:8000/docs
+#### 🔍 Browse Items Page
+Allows searching and browsing the master list of TBH items, with active sync tools to fetch items from the Steam Market.
+![Browse Items Page](Design/Result%20Design/Browse.png)
 
-## Steam Market Integration
+#### 📖 How To Use Page
+Guide on how to configure, set up, and make the most out of the tracker.
+![How To Use Page](Design/Result%20Design/HTU.png)
 
-- App ID: `3678970` (Task Bar Hero)
-- Currencies: IDR (`currency=9`) + USD (`currency=1`)
-- Rate limiting: `asyncio.sleep(3)` between every request
-- HTTP 429 backoff: 30s → 60s → 120s → skip
-- Item seeding via: `POST /api/v1/items/seed`
+#### ℹ️ About Page
+Displays details about the application version (dynamic theme-aware badge), game details, and unofficial disclaimer.
+![About Page](Design/Result%20Design/About.png)
 
-## License
+---
 
-MIT — built for portfolio and personal use.
+## 🛠️ Tools & Technologies
+
+- **Database**: SQLite (SQLAlchemy 2.x ORM)
+- **Backend Framework**: FastAPI (Python)
+- **Frontend Framework**: Next.js 14 App Router, TypeScript, React Portals
+- **Task Scheduling**: APScheduler (Python background jobs)
+- **Containerization**: Docker & Docker Compose
+
+Thanks for visiting and checking out my code!
+***Copyright © 2026 by Steven | All Rights Reserved**
