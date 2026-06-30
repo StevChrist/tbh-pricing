@@ -94,4 +94,4 @@ Displays details about the application version (dynamic theme-aware badge), game
 Thanks for visiting and checking out my code!
 ***Copyright © 2026 by Steven | All Rights Reserved**
 
-## Built for portfolio and personal use.
+# Built for portfolio and personal use.
