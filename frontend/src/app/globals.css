@@ -1,0 +1,191 @@
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  /* Font Families */
+  --font-display: "Oswald", "Arial Narrow", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  /* Bolder Retro Light Mode Colors */
+  --bg: #f5edd6;                 /* Warm vintage parchment background */
+  --surface: #e5d5b7;            /* Sand beige card surface */
+  --surface-2: #dbcaa6;          /* Slightly darker warm beige */
+  --surface-offset: #d0be97;     /* Darker mustard-sand input background */
+  --border: rgba(60, 47, 47, 0.16); /* Warm brown border */
+  --border-strong: rgba(60, 47, 47, 0.28);
+
+  /* Font Colors */
+  --text: #3c2f2f;               /* Dark coffee brown text */
+  --text-muted: #7d6b58;         /* Tobacco brown muted text */
+  --text-subtle: #9c8973;        /* Subtle warm grey text */
+
+  /* Accent Colors */
+  --primary: #b85042;            /* Terracotta / retro rust-red button */
+  --primary-hover: #a73c2f;      /* Darker vintage red hover */
+  --primary-active: #82271c;
+  
+  --cyan-highlight: #0f766e;     /* Deep vintage teal highlight for prices */
+  --accent-orange: #d97706;      /* Deep rust orange accent */
+  --accent-blue: #0369a1;        /* Vintage slate-blue accent */
+  
+  /* Glowing / Effects */
+  --glow-color: rgba(184, 80, 66, 0.25);
+
+  /* Card Radius and Space Utilities */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  --transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-sm: 0 1px 3px rgba(60, 47, 47, 0.12);
+  --shadow-md: 0 4px 14px rgba(60, 47, 47, 0.18);
+  --shadow-lg: 0 12px 32px rgba(60, 47, 47, 0.25);
+}
+
+[data-theme="dark"] {
+  /* Typical Dark Mode Palette */
+  --bg: #09090b;                 /* Standard slate-black background */
+  --surface: #18181b;            /* Zinc dark card surface */
+  --surface-2: #27272a;          /* Zinc card hover */
+  --surface-offset: #09090b;     /* Slate-black input background */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text: #fafafa;               /* Almost white text */
+  --text-muted: #a1a1aa;         /* Zinc muted text */
+  --text-subtle: #71717a;        /* Zinc subtle text */
+
+  --primary: #257e8c;            /* Standard primary cyan/teal */
+  --primary-hover: #2d92a2;      /* Primary hover */
+  --primary-active: #1d6470;
+
+  --cyan-highlight: #35c3de;     /* Bright cyan prices */
+  --accent-orange: #f59e0b;      /* Yellow/amber alerts */
+  --accent-blue: #38bdf8;        /* Light blue refresh */
+
+  --glow-color: rgba(37, 126, 140, 0.3);
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--text);
+  background-color: var(--bg);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+
+input, button, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+::selection {
+  background-color: var(--primary);
+  color: var(--text);
+}
+
+/* Reusable components classes if needed */
+.glow-card {
+  box-shadow: 0 0 40px var(--glow-color);
+}
+
+/* Animations */
+@keyframes row-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes container-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-simple {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-row-fade {
+  animation: row-fade-in 0.35s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-container-slide {
+  animation: container-slide-up 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-fade {
+  animation: fade-in-simple 0.4s ease-out forwards;
+}

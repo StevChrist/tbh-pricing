@@ -1,0 +1,116 @@
+import type { Rarity } from "@/types";
+
+// ---------------------------------------------------------------------------
+// Currency formatters
+// ---------------------------------------------------------------------------
+
+const IDR_FORMATTER = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+const USD_FORMATTER = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+export function formatIDR(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return IDR_FORMATTER.format(value);
+}
+
+export function formatUSD(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return USD_FORMATTER.format(value);
+}
+
+export function formatPrice(
+  value: number | null | undefined,
+  currency: "IDR" | "USD"
+): string {
+  return currency === "IDR" ? formatIDR(value) : formatUSD(value);
+}
+
+// ---------------------------------------------------------------------------
+// Number formatters
+// ---------------------------------------------------------------------------
+
+export function formatNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return new Intl.NumberFormat("id-ID").format(value);
+}
+
+export function formatVolume(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return String(value);
+}
+
+// ---------------------------------------------------------------------------
+// Date / time formatters
+// ---------------------------------------------------------------------------
+
+export function formatRelativeTime(isoString: string | null | undefined): string {
+  if (!isoString) return "Never";
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+
+  if (diffSecs < 60) return "just now";
+  if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)} min ago`;
+  if (diffSecs < 86400) return `${Math.floor(diffSecs / 3600)} hr ago`;
+  return `${Math.floor(diffSecs / 86400)} days ago`;
+}
+
+export function formatDateTime(isoString: string | null | undefined): string {
+  if (!isoString) return "—";
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(isoString));
+}
+
+export function formatCountdown(isoString: string | null | undefined): string {
+  if (!isoString) return "—";
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = date.getTime() - now.getTime();
+  if (diffMs <= 0) return "soon";
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return `${diffSecs}s`;
+  if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m ${diffSecs % 60}s`;
+  return `${Math.floor(diffSecs / 3600)}h ${Math.floor((diffSecs % 3600) / 60)}m`;
+}
+
+// ---------------------------------------------------------------------------
+// Rarity helpers
+// ---------------------------------------------------------------------------
+
+export const RARITY_COLORS: Record<string, string> = {
+  Common: "#B0B0B0",
+  Uncommon: "#4CAF50",
+  Rare: "#2196F3",
+  Epic: "#9C27B0",
+  Legendary: "#FFD700",
+  Unique: "#FF6B35",
+};
+
+export function getRarityColor(rarity: string | null | undefined): string {
+  if (!rarity) return "#B0B0B0";
+  return RARITY_COLORS[rarity] ?? "#B0B0B0";
+}
+
+// ---------------------------------------------------------------------------
+// Avatar initials (fallback when no icon_url)
+// ---------------------------------------------------------------------------
+
+export function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
