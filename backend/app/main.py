@@ -151,7 +151,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # Routers
 # ---------------------------------------------------------------------------
 
-from app.api.routes import auth, alerts, inventory, items, notifications, prices, settings as settings_routes  # noqa: E402
+from app.api.routes import auth, alerts, inventory, items, notifications, prices, settings as settings_routes, admin  # noqa: E402
 
 API_PREFIX = "/api/v1"
 
@@ -162,6 +162,7 @@ app.include_router(prices.router, prefix=API_PREFIX)
 app.include_router(alerts.router, prefix=API_PREFIX)
 app.include_router(notifications.router, prefix=API_PREFIX)
 app.include_router(settings_routes.router, prefix=API_PREFIX)
+app.include_router(admin.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

@@ -141,6 +141,17 @@ async def check_alerts_for_item(
             target_value=alert.target_value,
         )
         await crud.deactivate_alert(db, alert)
+        
+        username = alert.user.username if alert.user else f"user_{alert.user_id}"
+        await crud.log_activity(
+            db,
+            user_id=alert.user_id,
+            username=username,
+            action="alert_triggered",
+            details=f"Alert triggered for {alert.master_item.display_name}. {message}",
+            ip_address="127.0.0.1"
+        )
+        
         triggered += 1
         logger.info(
             "Alert #%d triggered for user_id=%d, item_id=%d.",

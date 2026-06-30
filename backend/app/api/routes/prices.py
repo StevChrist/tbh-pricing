@@ -160,7 +160,7 @@ async def refresh_single_item(
 async def refresh_all_inventory(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> RefreshResponse:
     """
     Manually trigger a price refresh for all items currently in any user's inventory.
@@ -180,14 +180,18 @@ async def refresh_all_inventory(
     await db.commit()
 
     master_ids = await crud.get_all_inventory_master_ids(db)
+    total_items = len(master_ids)
     delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
-    refreshed = unavailable = errors = 0
+    refreshed = unavailable = errors = skipped_untradable = 0
 
     try:
         async with SteamMarketClient(request_delay=delay) as client:
             for mid in master_ids:
                 item = await crud.get_master_item_by_id(db, mid)
                 if not item:
+                    continue
+                if not item.market_hash_name:
+                    skipped_untradable += 1
                     continue
                 try:
                     result = await client.get_item_price(item.market_hash_name)
@@ -238,6 +242,18 @@ async def refresh_all_inventory(
         await crud.set_setting(db, "items_unavailable_last_run", str(unavailable))
         await db.commit()
         await alert_checker.expire_old_alerts(db)
+        await db.commit()
+
+        # Log manual refresh activity
+        client_ip = request.client.host if request.client else current_user.last_ip_address
+        await crud.log_activity(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="price_sync",
+            details=f"Manual price refresh complete — checked={total_items} (refreshed={refreshed} unavailable={unavailable} skipped_untradable={skipped_untradable} errors={errors})",
+            ip_address=client_ip
+        )
         await db.commit()
 
     logger.info(

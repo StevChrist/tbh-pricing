@@ -72,6 +72,17 @@ async def create_alert(
         direction=body.direction,
     )
     await db.refresh(alert, ["master_item"])
+
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="set_alert",
+        details=f"Created alert {alert.alert_type} for {alert.master_item.display_name} at {alert.currency} {alert.target_value}",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
+
     return _enrich_alert(alert)
 
 
@@ -94,6 +105,17 @@ async def update_alert(
 
     await db.flush()
     await db.refresh(alert, ["master_item"])
+
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="edit_alert",
+        details=f"Updated alert for {alert.master_item.display_name} to {alert.currency} {alert.target_value}",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
+
     return _enrich_alert(alert)
 
 
@@ -107,7 +129,24 @@ async def delete_alert(
     alert = await crud.get_alert_by_id(db, alert_id, current_user.id)
     if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
+    
+    await db.refresh(alert, ["master_item"])
+    item_name = alert.master_item.display_name
+    alert_type = alert.alert_type
+    target_val = alert.target_value
+    currency = alert.currency
+
     await crud.delete_alert(db, alert)
+
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="delete_alert",
+        details=f"Deleted alert {alert_type} for {item_name} at {currency} {target_val}",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
 
 
 @router.get("/triggered", response_model=list[AlertResponse])

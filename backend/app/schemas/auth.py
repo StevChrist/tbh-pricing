@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    role: str
 
 
 class TokenResponse(BaseModel):

@@ -51,12 +51,13 @@ class NotificationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     id: int
-    alert_id: int
-    master_item_id: int
+    alert_id: Optional[int] = None
+    master_item_id: Optional[int] = None
+    notification_type: str = "message"
     message: str
     triggered_price_idr: Optional[float] = None
     triggered_price_usd: Optional[float] = None
-    target_value: float
+    target_value: Optional[float] = None
     is_read: bool
     created_at: datetime
 

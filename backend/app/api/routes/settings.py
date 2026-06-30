@@ -45,7 +45,7 @@ async def get_settings(
 async def update_settings(
     body: SettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> SettingsResponse:
     """
     Update one or more application settings.
@@ -59,8 +59,19 @@ async def update_settings(
 
     if updates:
         await crud.update_settings(db, updates)
+        
+        details_str = ", ".join([f"{k}={v}" for k, v in updates.items()])
+        await crud.log_activity(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update_settings",
+            details=f"Updated system settings: {details_str}",
+            ip_address=current_user.last_ip_address
+        )
+        await db.commit()
 
-    return await get_settings(db, _)
+    return await get_settings(db, current_user)
 
 
 @router.get("/export/csv")
@@ -74,6 +85,16 @@ async def export_inventory_csv(
              lowest USD, median USD, volume, fetch status, last fetched, notes.
     """
     rows = await crud.get_inventory_with_latest_prices(db, current_user.id)
+
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="export_csv",
+        details="Exported inventory as CSV file",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
 
     output = io.StringIO()
     writer = csv.writer(output)

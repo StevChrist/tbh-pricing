@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Cookie, Depends, HTTPException, Response, status
+from fastapi import Cookie, Depends, HTTPException, Response, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 async def get_current_user(
     response: Response,
+    request: Request,
     access_token: str | None = Cookie(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -100,5 +101,27 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+
+    # Track User Activity & IP address
+    ip = request.client.host if request.client else "unknown"
+    user.last_ip_address = ip
+
+    now = datetime.now(timezone.utc)
+    today_str = now.date().isoformat()
+
+    # Reset if a new day starts
+    if user.active_date != today_str:
+        user.active_date = today_str
+        user.daily_active_seconds = 0
+
+    if user.last_active_at is not None:
+        # Accumulate active duration if subsequent request is within 15 minutes (900 seconds)
+        last_active = user.last_active_at.replace(tzinfo=timezone.utc) if user.last_active_at.tzinfo is None else user.last_active_at
+        diff = (now - last_active).total_seconds()
+        if 0 < diff < 900:
+            user.daily_active_seconds += int(diff)
+
+    user.last_active_at = now
+    await db.commit()
 
     return user

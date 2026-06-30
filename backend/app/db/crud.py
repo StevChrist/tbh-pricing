@@ -587,7 +587,10 @@ async def get_all_active_alerts(db: AsyncSession) -> list[PriceAlert]:
             PriceAlert.is_active == True,
             PriceAlert.expires_at > _now(),
         )
-        .options(selectinload(PriceAlert.master_item))
+        .options(
+            selectinload(PriceAlert.master_item),
+            selectinload(PriceAlert.user),
+        )
     )
     return list(result.scalars().all())
 
@@ -805,3 +808,128 @@ async def update_settings(
     for key, value in updates.items():
         await set_setting(db, key, value)
     return await get_all_settings(db)
+
+
+# ===========================================================================
+# Admin & Activity Logging
+# ===========================================================================
+
+
+async def log_activity(
+    db: AsyncSession,
+    user_id: int | None,
+    username: str | None,
+    action: str,
+    details: str | None = None,
+    ip_address: str | None = None,
+) -> Any:
+    from app.db.models import ActivityLog
+    log_entry = ActivityLog(
+        user_id=user_id,
+        username=username,
+        action=action,
+        details=details,
+        ip_address=ip_address,
+        created_at=_now(),
+    )
+    db.add(log_entry)
+    await db.flush()
+    return log_entry
+
+
+async def cleanup_activity_logs(db: AsyncSession) -> int:
+    from app.db.models import ActivityLog
+    three_months_ago = _now() - timedelta(days=90)
+    result = await db.execute(
+        delete(ActivityLog).where(ActivityLog.created_at < three_months_ago)
+    )
+    return result.rowcount
+
+
+async def get_all_users_admin(db: AsyncSession) -> list[dict]:
+    # We query all users, and for each user, count their inventory items
+    from app.db.models import User, InventoryItem
+    
+    # Query users
+    users_result = await db.execute(select(User).order_by(desc(User.created_at)))
+    users_list = users_result.scalars().all()
+    
+    out = []
+    for u in users_list:
+        # Count inventory items
+        count_result = await db.execute(
+            select(func.count(InventoryItem.id)).where(InventoryItem.user_id == u.id)
+        )
+        item_count = count_result.scalar() or 0
+        
+        out.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at,
+            "last_login_at": u.last_login_at,
+            "last_active_at": u.last_active_at,
+            "last_ip_address": u.last_ip_address,
+            "daily_active_seconds": u.daily_active_seconds,
+            "inventory_count": item_count
+        })
+    return out
+
+
+async def create_admin_notification(
+    db: AsyncSession,
+    user_id: int,
+    message: str,
+    notify_type: str = "message"
+) -> Notification:
+    from app.db.models import Notification
+    n = Notification(
+        user_id=user_id,
+        alert_id=None,
+        master_item_id=None,
+        message=message,
+        triggered_price_idr=None,
+        triggered_price_usd=None,
+        target_value=None,
+        notification_type=notify_type,
+        is_read=False,
+        created_at=_now(),
+    )
+    db.add(n)
+    await db.flush()
+    return n
+
+
+async def get_activity_logs(
+    db: AsyncSession,
+    username: str | None = None,
+    action: str | None = None,
+    limit: int = 100,
+    offset: int = 0
+) -> list[Any]:
+    from app.db.models import ActivityLog
+    stmt = select(ActivityLog)
+    if username:
+        stmt = stmt.where(ActivityLog.username == username)
+    if action:
+        stmt = stmt.where(ActivityLog.action == action)
+    stmt = stmt.order_by(desc(ActivityLog.created_at)).limit(limit).offset(offset)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def count_activity_logs(
+    db: AsyncSession,
+    username: str | None = None,
+    action: str | None = None
+) -> int:
+    from app.db.models import ActivityLog
+    stmt = select(func.count(ActivityLog.id))
+    if username:
+        stmt = stmt.where(ActivityLog.username == username)
+    if action:
+        stmt = stmt.where(ActivityLog.action == action)
+    result = await db.execute(stmt)
+    return result.scalar() or 0

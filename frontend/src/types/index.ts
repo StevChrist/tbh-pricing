@@ -8,6 +8,7 @@ export interface UserResponse {
   id: number;
   username: string;
   email: string;
+  role: string;
 }
 
 export interface TokenResponse {
@@ -208,12 +209,13 @@ export interface AlertCreate {
 
 export interface Notification {
   id: number;
-  alert_id: number;
-  master_item_id: number;
+  alert_id?: number | null;
+  master_item_id?: number | null;
+  notification_type?: string;
   message: string;
   triggered_price_idr: number | null;
   triggered_price_usd: number | null;
-  target_value: number;
+  target_value?: number | null;
   is_read: boolean;
   created_at: string;
   item_display_name: string | null;
@@ -249,4 +251,37 @@ export interface ApiError {
   detail: string;
   code: string;
   field: string | null;
+}
+
+// --------------- Admin ---------------
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  last_active_at: string | null;
+  last_ip_address: string | null;
+  daily_active_seconds: number;
+  inventory_count: number;
+}
+
+export interface ActivityLog {
+  id: number;
+  user_id: number | null;
+  username: string | null;
+  action: string;
+  details: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface LogsResponse {
+  logs: ActivityLog[];
+  total: number;
+  limit: number;
+  offset: number;
 }

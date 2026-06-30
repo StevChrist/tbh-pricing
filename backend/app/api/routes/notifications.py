@@ -24,6 +24,7 @@ def _enrich_notif(n) -> NotificationResponse:
         id=n.id,
         alert_id=n.alert_id,
         master_item_id=n.master_item_id,
+        notification_type=n.notification_type,
         message=n.message,
         triggered_price_idr=n.triggered_price_idr,
         triggered_price_usd=n.triggered_price_usd,

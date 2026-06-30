@@ -80,13 +80,75 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created/verified.")
 
+    # Auto-add missing columns & modify constraints (self-healing migration supporting SQLite & PostgreSQL)
+    def add_missing_columns(connection):
+        from sqlalchemy import inspect, text
+        inspector = inspect(connection)
+        
+        # 1. users table
+        columns_users = [c["name"] for c in inspector.get_columns("users")]
+        is_postgresql = connection.dialect.name == "postgresql"
+        datetime_type = "TIMESTAMP WITH TIME ZONE" if is_postgresql else "DATETIME"
+        
+        new_cols_users = {
+            "last_ip_address": "VARCHAR(64)",
+            "last_active_at": datetime_type,
+            "daily_active_seconds": "INTEGER DEFAULT 0",
+            "active_date": "VARCHAR(10)"
+        }
+        for col_name, col_type in new_cols_users.items():
+            if col_name not in columns_users:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                logger.info(f"Database migration: Added column '{col_name}' to users table.")
+
+        # 2. notifications table
+        columns_notifs = [c["name"] for c in inspector.get_columns("notifications")]
+        if "notification_type" not in columns_notifs:
+            connection.execute(text("ALTER TABLE notifications ADD COLUMN notification_type VARCHAR(32) DEFAULT 'message'"))
+            logger.info("Database migration: Added column 'notification_type' to notifications table.")
+            
+        # Drop NOT NULL constraints in PostgreSQL
+        if is_postgresql:
+            for col in ["alert_id", "master_item_id", "target_value"]:
+                col_info = next((c for c in inspector.get_columns("notifications") if c["name"] == col), None)
+                if col_info and not col_info.get("nullable", True):
+                    connection.execute(text(f"ALTER TABLE notifications ALTER COLUMN {col} DROP NOT NULL"))
+                    logger.info(f"Database migration: Dropped NOT NULL constraint on notifications.{col}")
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(add_missing_columns)
+    except Exception as exc:
+        logger.error("Database migration: Failed to auto-add missing columns: %s", exc)
+
     async with AsyncSessionLocal() as session:
+        # Seed settings
         for key, value in DEFAULT_SETTINGS.items():
             existing = await session.get(AppSetting, key)
             if existing is None:
                 session.add(AppSetting(key=key, value=value))
+        
+        # Seed default admin user
+        from app.db.models import User
+        from app.core.security import hash_password
+        from sqlalchemy import select
+        
+        result = await session.execute(select(User).where(User.username == "admin"))
+        admin_user = result.scalar_one_or_none()
+        if admin_user is None:
+            admin_user = User(
+                username="admin",
+                email="admin@example.com",
+                password_hash=hash_password("admin"),
+                role="admin",
+                email_verified=True,
+                is_active=True,
+            )
+            session.add(admin_user)
+            logger.info("Default admin user created (username: admin, password: admin).")
+            
         await session.commit()
-    logger.info("Default app_settings seeded.")
+    logger.info("Default app_settings and admin user seeded.")
 
 
 # ---------------------------------------------------------------------------

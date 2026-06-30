@@ -25,7 +25,7 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
   const pathname = usePathname();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; email: string; role?: string } | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -46,7 +46,7 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
       }
     }, 60);
     return () => clearTimeout(timer);
-  }, [pathname, mounted]);
+  }, [pathname, mounted, user]);
 
   useEffect(() => {
     setMounted(true);
@@ -71,6 +71,16 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
       console.error("Logout failed", err);
     }
   }
+
+  const navLinks = [
+    ...NAV_LINKS,
+    ...(user?.role === "admin"
+      ? [
+          { href: "/users", label: "Users" },
+          { href: "/logs", label: "Logs" },
+        ]
+      : []),
+  ];
 
   return (
     <>
@@ -119,7 +129,7 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
               position: "relative",
             }}
           >
-            {NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const isActive =
                 link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
               return (

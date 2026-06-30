@@ -1,42 +1,63 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { X, Bell, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { createPortal } from "react-dom";
+import { X, Bell, ChevronLeft, ChevronRight, ExternalLink, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { notificationsApi } from "@/lib/api";
 import { formatIDR, formatUSD, formatRelativeTime } from "@/lib/currency";
 import type { Notification } from "@/types";
 
 const DISMISS_AFTER_MS = 15_000;
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 5_000;
 
 interface NotifPopupCarouselProps {
   onUnreadChange?: (count: number) => void;
 }
 
 export function NotifPopupCarousel({ onUnreadChange }: NotifPopupCarouselProps) {
+  const pathname = usePathname();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [criticalAlerts, setCriticalAlerts] = useState<Notification[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visible, setVisible] = useState(false);
   const [timeLeft, setTimeLeft] = useState(DISMISS_AFTER_MS / 1000);
   const shownRef = useRef<Set<number>>(new Set());
 
   const fetchUnread = useCallback(async () => {
+    if (pathname === "/login" || pathname === "/register") return;
     try {
       const { data } = await notificationsApi.unread();
-      const newOnes = data.notifications.filter((n) => !shownRef.current.has(n.id));
-      if (newOnes.length > 0) {
-        setNotifications(newOnes);
+      
+      // 1. Filter for critical admin alerts (type === "alert")
+      const newAlerts = data.notifications.filter(
+        (n) => n.notification_type === "alert" && !shownRef.current.has(n.id)
+      );
+      if (newAlerts.length > 0) {
+        setCriticalAlerts((prev) => [...prev, ...newAlerts]);
+        newAlerts.forEach((n) => shownRef.current.add(n.id));
+      }
+      
+      // 2. Filter for toast notifications (price alerts or type === "notification")
+      const newToasts = data.notifications.filter(
+        (n) =>
+          (n.notification_type === "notification" || n.alert_id != null) &&
+          !shownRef.current.has(n.id)
+      );
+      if (newToasts.length > 0) {
+        setNotifications(newToasts);
         setCurrentIndex(0);
         setVisible(true);
         setTimeLeft(DISMISS_AFTER_MS / 1000);
-        newOnes.forEach((n) => shownRef.current.add(n.id));
+        newToasts.forEach((n) => shownRef.current.add(n.id));
       }
+
       onUnreadChange?.(data.unread_count);
     } catch {
       // non-critical
     }
-  }, [onUnreadChange]);
+  }, [onUnreadChange, pathname]);
 
   useEffect(() => {
     fetchUnread();
@@ -75,195 +96,302 @@ export function NotifPopupCarousel({ onUnreadChange }: NotifPopupCarouselProps) 
     setTimeLeft(DISMISS_AFTER_MS / 1000);
   };
 
-  if (!visible || notifications.length === 0) return null;
+  const handleAcknowledgeAlert = async (id: number) => {
+    try {
+      await notificationsApi.markRead(id);
+      setCriticalAlerts((prev) => prev.filter((a) => a.id !== id));
+      // Re-fetch count
+      const { data } = await notificationsApi.unread();
+      onUnreadChange?.(data.unread_count);
+    } catch {}
+  };
 
   const notif = notifications[currentIndex];
   const alertTypeLabel =
-    notif.alert_type === "price_below"
+    notif?.alert_type === "price_below"
       ? "Price ≤ Target"
-      : notif.alert_type === "price_above"
+      : notif?.alert_type === "price_above"
       ? "Price ≥ Target"
-      : notif.alert_type === "percent_change"
+      : notif?.alert_type === "percent_change"
       ? "Price Change"
       : "Alert";
 
   return (
-    <div
-      style={{
-        // Use 50vw + translateX(-50%) so the popup centers on the actual viewport
-        // regardless of any parent layout (sidebar, max-width containers, etc.)
-        position: "fixed",
-        bottom: "32px",
-        left: "50vw",
-        transform: "translateX(-50%)",
-        width: "min(420px, calc(100vw - 32px))",
-        zIndex: 9999,
-        fontFamily: "var(--font-body)",
-        // Don't inherit any parent transform that would break fixed positioning
-        willChange: "transform",
-      }}
-    >
-      <div
-        style={{
-          borderRadius: "12px",
-          border: "1px solid var(--border)",
-          backgroundColor: "var(--surface)",
-          boxShadow: "0 0 25px var(--glow-color), var(--shadow-lg)",
-          overflow: "hidden",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "10px 16px",
-            borderBottom: "1px solid var(--border)",
-            backgroundColor: "rgba(0, 0, 0, 0.15)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Bell size={14} style={{ color: "var(--cyan-highlight)" }} />
-            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--cyan-highlight)" }}>
-              Price Alert Triggered
-            </span>
-            {notifications.length > 1 && (
-              <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginLeft: "4px" }}>
-                {currentIndex + 1}/{notifications.length}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={dismiss}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "0.6875rem",
-              color: "var(--text-muted)",
-              cursor: "pointer",
-            }}
-          >
-            <span>{timeLeft}s</span>
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div>
-            <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>
-              {notif.item_display_name}
-            </p>
-            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-              {alertTypeLabel}
-            </p>
-          </div>
-
+    <>
+      {/* 1. Critical Admin Alert Modal (Portal) */}
+      {criticalAlerts.length > 0 &&
+        createPortal(
           <div
             style={{
-              borderRadius: "8px",
-              padding: "10px 12px",
-              backgroundColor: "var(--surface-offset)",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(6px)",
               display: "flex",
-              flexDirection: "column",
-              gap: "6px",
-              fontSize: "0.75rem",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 99999,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-muted)" }}>Target:</span>
-              <span style={{ fontWeight: 500, color: "var(--text)" }}>
-                {notif.currency === "IDR"
-                  ? formatIDR(notif.target_value)
-                  : formatUSD(notif.target_value)}
-              </span>
-            </div>
-            {notif.triggered_price_idr != null && (
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Price IDR:</span>
-                <span style={{ fontWeight: 600, color: "var(--cyan-highlight)" }}>
-                  {formatIDR(notif.triggered_price_idr)}
+            <div
+              className="animate-modal-pop"
+              style={{
+                backgroundColor: "var(--surface)",
+                border: "1.5px solid var(--cyan-highlight)",
+                borderRadius: "14px",
+                width: "min(420px, 90vw)",
+                padding: "26px",
+                boxShadow: "0 0 25px rgba(0, 240, 255, 0.25), var(--shadow-lg)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "18px",
+                fontFamily: "var(--font-body)",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                <div style={{ padding: "10px", borderRadius: "50%", backgroundColor: "rgba(0,240,255,0.08)", color: "var(--cyan-highlight)" }}>
+                  <ShieldAlert size={32} />
+                </div>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--text)", margin: "4px 0 0 0" }}>
+                  Important System Alert
+                </h3>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  From: Site Administrator
                 </span>
               </div>
-            )}
-            {notif.triggered_price_usd != null && (
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-muted)" }}>Price USD:</span>
-                <span style={{ fontWeight: 600, color: "var(--cyan-highlight)" }}>
-                  {formatUSD(notif.triggered_price_usd)}
-                </span>
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-muted)" }}>Time:</span>
-              <span style={{ color: "var(--text-muted)" }}>{formatRelativeTime(notif.created_at)}</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Footer */}
+              <div
+                style={{
+                  fontSize: "0.875rem",
+                  color: "var(--text)",
+                  lineHeight: 1.5,
+                  padding: "14px 16px",
+                  backgroundColor: "var(--surface-offset)",
+                  borderRadius: "8px",
+                  textAlign: "left",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {criticalAlerts[0].message}
+              </div>
+
+              <button
+                onClick={() => handleAcknowledgeAlert(criticalAlerts[0].id)}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: "var(--cyan-highlight)",
+                  color: "#000",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "opacity 0.2s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              >
+                Acknowledge & Close
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 2. Standard Toast Notification Carousel */}
+      {visible && notifications.length > 0 && (
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "8px 16px",
-            borderTop: "1px solid var(--border)",
-            backgroundColor: "rgba(0, 0, 0, 0.05)",
+            position: "fixed",
+            bottom: "32px",
+            left: "50vw",
+            transform: "translateX(-50%)",
+            width: "min(420px, calc(100vw - 32px))",
+            zIndex: 9999,
+            fontFamily: "var(--font-body)",
+            willChange: "transform",
           }}
         >
-          {notifications.length > 1 ? (
-            <button onClick={handlePrev} style={{ cursor: "pointer", color: "var(--text-muted)" }}>
-              <ChevronLeft size={16} />
-            </button>
-          ) : (
-            <div />
-          )}
-
-          <Link
-            href="/mailbox"
-            onClick={() => {
-              markCurrentRead();
-              dismiss();
-            }}
+          <div
             style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "6px",
-              fontSize: "0.75rem",
-              fontWeight: 500,
-              color: "var(--cyan-highlight)",
-              textDecoration: "none",
-              padding: "6px 0",
+              borderRadius: "12px",
+              border: "1px solid var(--border)",
+              backgroundColor: "var(--surface)",
+              boxShadow: "0 0 25px var(--glow-color), var(--shadow-lg)",
+              overflow: "hidden",
             }}
           >
-            <ExternalLink size={12} />
-            View Mailbox
-          </Link>
+            {/* Header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 16px",
+                borderBottom: "1px solid var(--border)",
+                backgroundColor: "rgba(0, 0, 0, 0.15)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Bell size={14} style={{ color: "var(--cyan-highlight)" }} />
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--cyan-highlight)" }}>
+                  {notif.alert_id != null ? "Price Alert Triggered" : "System Notification"}
+                </span>
+                {notifications.length > 1 && (
+                  <span style={{ fontSize: "0.625rem", color: "var(--text-muted)", marginLeft: "4px" }}>
+                    {currentIndex + 1}/{notifications.length}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={dismiss}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "0.6875rem",
+                  color: "var(--text-muted)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <span>{timeLeft}s</span>
+                <X size={14} />
+              </button>
+            </div>
 
-          {notifications.length > 1 ? (
-            <button onClick={handleNext} style={{ cursor: "pointer", color: "var(--text-muted)" }}>
-              <ChevronRight size={16} />
-            </button>
-          ) : (
-            <div />
-          )}
+            {/* Content */}
+            <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text)" }}>
+                  {notif.item_display_name || "Admin Update"}
+                </p>
+                {notif.alert_id != null && (
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                    {alertTypeLabel}
+                  </p>
+                )}
+              </div>
+
+              <div
+                style={{
+                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  backgroundColor: "var(--surface-offset)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  fontSize: "0.75rem",
+                }}
+              >
+                {notif.alert_id != null ? (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Target:</span>
+                      <span style={{ fontWeight: 500, color: "var(--text)" }}>
+                        {notif.currency === "IDR"
+                          ? formatIDR(notif.target_value || 0)
+                          : formatUSD(notif.target_value || 0)}
+                      </span>
+                    </div>
+                    {notif.triggered_price_idr != null && (
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--text-muted)" }}>Price IDR:</span>
+                        <span style={{ fontWeight: 600, color: "var(--cyan-highlight)" }}>
+                          {formatIDR(notif.triggered_price_idr)}
+                        </span>
+                      </div>
+                    )}
+                    {notif.triggered_price_usd != null && (
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--text-muted)" }}>Price USD:</span>
+                        <span style={{ fontWeight: 600, color: "var(--cyan-highlight)" }}>
+                          {formatUSD(notif.triggered_price_usd)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ color: "var(--text)", lineHeight: 1.4, fontSize: "0.8rem" }}>
+                    {notif.message}
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: notif.alert_id != null ? "none" : "1px solid var(--border)", paddingTop: notif.alert_id != null ? 0 : "4px" }}>
+                  <span style={{ color: "var(--text-muted)" }}>Time:</span>
+                  <span style={{ color: "var(--text-muted)" }}>{formatRelativeTime(notif.created_at)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 16px",
+                borderTop: "1px solid var(--border)",
+                backgroundColor: "rgba(0, 0, 0, 0.05)",
+              }}
+            >
+              {notifications.length > 1 ? (
+                <button onClick={handlePrev} style={{ cursor: "pointer", color: "var(--text-muted)", background: "none", border: "none" }}>
+                  <ChevronLeft size={16} />
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <Link
+                href="/mailbox"
+                onClick={() => {
+                  markCurrentRead();
+                  dismiss();
+                }}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  color: "var(--cyan-highlight)",
+                  textDecoration: "none",
+                  padding: "6px 0",
+                }}
+              >
+                <ExternalLink size={12} />
+                View Mailbox
+              </Link>
+
+              {notifications.length > 1 ? (
+                <button onClick={handleNext} style={{ cursor: "pointer", color: "var(--text-muted)", background: "none", border: "none" }}>
+                  <ChevronRight size={16} />
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
+
+            {/* Timer Bar */}
+            <div
+              style={{
+                height: "2px",
+                backgroundColor: "var(--cyan-highlight)",
+                width: `${(timeLeft / (DISMISS_AFTER_MS / 1000)) * 100}%`,
+                transition: "width 1s linear",
+              }}
+            />
+          </div>
         </div>
-
-        {/* Timer Bar */}
-        <div
-          style={{
-            height: "2px",
-            backgroundColor: "var(--cyan-highlight)",
-            width: `${(timeLeft / (DISMISS_AFTER_MS / 1000)) * 100}%`,
-            transition: "width 1s linear",
-          }}
-        />
-      </div>
-    </div>
+      )}
+    </>
   );
 }

@@ -171,6 +171,16 @@ async def add_inventory_item(
     if not price:
         price = await crud.get_latest_price(db, inv.master_item_id)
 
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="add_item",
+        details=f"Added item {inv.master_item.display_name} (Qty: {inv.quantity})",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
+
     return _build_inventory_response(inv, price)
 
 
@@ -217,6 +227,20 @@ async def bulk_add_inventory(
             await db.rollback()
             skipped_duplicates.append(entry.master_item_id)
 
+    if added:
+        item_names = ", ".join([x.master_item.display_name for x in added[:3]])
+        if len(added) > 3:
+            item_names += f" and {len(added) - 3} more"
+        await crud.log_activity(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="bulk_add_item",
+            details=f"Bulk added {len(added)} items: {item_names}",
+            ip_address=current_user.last_ip_address
+        )
+        await db.commit()
+
     return BulkAddResult(
         added=added,
         skipped_duplicates=skipped_duplicates,
@@ -242,6 +266,17 @@ async def update_inventory_item(
     inv = await crud.update_inventory_item(db, inv, body.quantity, body.notes)
     await db.refresh(inv, ["master_item"])
     price = await crud.get_latest_price(db, inv.master_item_id)
+
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="edit_item",
+        details=f"Updated item {inv.master_item.display_name} (New Qty: {inv.quantity})",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
+
     return _build_inventory_response(inv, price)
 
 
@@ -255,7 +290,21 @@ async def delete_inventory_item(
     inv = await crud.get_inventory_item(db, item_id)
     if not inv or inv.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory item not found")
+    
+    await db.refresh(inv, ["master_item"])
+    item_name = inv.master_item.display_name
+
     await crud.delete_inventory_item(db, inv)
+
+    await crud.log_activity(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="delete_item",
+        details=f"Deleted item {item_name}",
+        ip_address=current_user.last_ip_address
+    )
+    await db.commit()
 
 
 @router.delete("", response_model=BulkDeleteResponse)
@@ -269,4 +318,14 @@ async def bulk_delete_inventory(
     Only items belonging to the current user are affected.
     """
     deleted = await crud.bulk_delete_inventory_items(db, current_user.id, body.ids)
+    if deleted > 0:
+        await crud.log_activity(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="bulk_delete_item",
+            details=f"Bulk deleted {deleted} items",
+            ip_address=current_user.last_ip_address
+        )
+        await db.commit()
     return BulkDeleteResponse(deleted=deleted)

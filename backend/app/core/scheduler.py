@@ -38,7 +38,7 @@ async def refresh_all_inventory_prices() -> None:
     6. Run alert checker per item.
     """
     logger.info("Scheduler: starting price refresh job.")
-    refreshed = unavailable = errors = 0
+    refreshed = unavailable = errors = skipped_untradable = 0
 
     async with AsyncSessionLocal() as db:
         # Check if another refresh/sync is running
@@ -53,6 +53,7 @@ async def refresh_all_inventory_prices() -> None:
 
         delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
         master_ids = await crud.get_all_inventory_master_ids(db)
+        total_items = len(master_ids)
 
         if not master_ids:
             logger.info("Scheduler: no inventory items found — skipping refresh.")
@@ -66,7 +67,10 @@ async def refresh_all_inventory_prices() -> None:
             async with SteamMarketClient(request_delay=delay) as client:
                 for mid in master_ids:
                     item = await crud.get_master_item_by_id(db, mid)
-                    if not item or not item.market_hash_name:
+                    if not item:
+                        continue
+                    if not item.market_hash_name:
+                        skipped_untradable += 1
                         continue
                     try:
                         result = await client.get_item_price(item.market_hash_name)
@@ -140,6 +144,16 @@ async def refresh_all_inventory_prices() -> None:
             await alert_checker.expire_old_alerts(db)
             await db.commit()
 
+            await crud.log_activity(
+                db,
+                user_id=None,
+                username="system_scheduler",
+                action="price_sync",
+                details=f"Price refresh complete — checked={total_items} (refreshed={refreshed} unavailable={unavailable} skipped_untradable={skipped_untradable} errors={errors})",
+                ip_address="127.0.0.1"
+            )
+            await db.commit()
+
         finally:
             await crud.set_setting(db, "is_running", "false")
             await db.commit()
@@ -169,8 +183,28 @@ async def run_daily_market_sync(mode: str = "daily") -> None:
             from app.core.sync_service import run_synchronization
             result = await run_synchronization(db, mode=mode)
             logger.info("Scheduler: daily sync job completed successfully with result: %s", result)
+            
+            details_str = f"Found: {result.get('items_found', 0)}, Inserted: {result.get('items_inserted', 0)}, Skipped: {result.get('items_skipped', 0)}" if isinstance(result, dict) else str(result)
+            await crud.log_activity(
+                db,
+                user_id=None,
+                username="system_scheduler",
+                action="market_sync",
+                details=f"Daily Steam Market sync ({mode}) completed. {details_str}",
+                ip_address="127.0.0.1"
+            )
+            await db.commit()
         except Exception as exc:
             logger.error("Scheduler: daily sync job encountered error: %s", exc, exc_info=True)
+            await crud.log_activity(
+                db,
+                user_id=None,
+                username="system_scheduler",
+                action="market_sync_failed",
+                details=f"Daily Steam Market sync ({mode}) failed: {str(exc)}",
+                ip_address="127.0.0.1"
+            )
+            await db.commit()
         finally:
             await crud.set_setting(db, "is_running", "false")
             await db.commit()
@@ -181,11 +215,20 @@ async def run_startup_jobs() -> None:
     Coordinated startup task:
     1. Seed the database with master items if empty.
     2. Otherwise, trigger an immediate price refresh to ensure prices are up to date on startup.
+    3. Clean up old activity logs.
     """
     # Wait a brief moment to allow the server to start listening to requests
     await asyncio.sleep(1)
     
     async with AsyncSessionLocal() as db:
+        try:
+            # Run cleanup logs at startup
+            rows = await crud.cleanup_activity_logs(db)
+            await db.commit()
+            logger.info("Startup: Cleaned up %d old activity logs.", rows)
+        except Exception as exc:
+            logger.error("Startup: Failed to clean up activity logs: %s", exc)
+
         try:
             result = await db.execute(select(func.count()).select_from(MasterItem))
             count = result.scalar() or 0
@@ -197,6 +240,18 @@ async def run_startup_jobs() -> None:
                 await refresh_all_inventory_prices()
         except Exception as exc:
             logger.error("Startup: error executing startup jobs: %s", exc)
+
+
+async def cleanup_old_logs_job() -> None:
+    """Scheduled task to delete activity logs older than 3 months (90 days)."""
+    logger.info("Scheduler: running activity logs cleanup job.")
+    async with AsyncSessionLocal() as db:
+        try:
+            rows = await crud.cleanup_activity_logs(db)
+            await db.commit()
+            logger.info("Scheduler: cleaned up %d old activity logs.", rows)
+        except Exception as exc:
+            logger.error("Scheduler: failed to clean up old activity logs: %s", exc)
 
 
 def create_scheduler(interval_minutes: int = 30) -> AsyncIOScheduler:
@@ -219,6 +274,17 @@ def create_scheduler(interval_minutes: int = 30) -> AsyncIOScheduler:
         minute=0,
         id="daily_market_seed",
         name="Daily Steam Market Seeding",
+        replace_existing=True,
+        max_instances=1,
+    )
+    # Add daily logs cleanup job (once every 24 hours at 3:00 AM)
+    scheduler.add_job(
+        cleanup_old_logs_job,
+        trigger="cron",
+        hour=3,
+        minute=0,
+        id="cleanup_old_logs",
+        name="Clean up old activity logs",
         replace_existing=True,
         max_instances=1,
     )

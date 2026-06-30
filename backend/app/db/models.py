@@ -142,6 +142,12 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default="user", server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     
+    # Activity & IP Tracking
+    last_ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    daily_active_seconds: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    active_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()
     )
@@ -412,16 +418,19 @@ class Notification(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    alert_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("price_alerts.id", ondelete="CASCADE"), nullable=False
+    alert_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("price_alerts.id", ondelete="CASCADE"), nullable=True
     )
-    master_item_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("master_items.id", ondelete="CASCADE"), nullable=False
+    master_item_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("master_items.id", ondelete="CASCADE"), nullable=True
+    )
+    notification_type: Mapped[str] = mapped_column(
+        String(32), default="message", server_default="message", nullable=False
     )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     triggered_price_idr: Mapped[float | None] = mapped_column(Float, nullable=True)
     triggered_price_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
-    target_value: Mapped[float] = mapped_column(Float, nullable=False)
+    target_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now(), index=True
@@ -483,3 +492,29 @@ class SyncLog(Base):
     images_reused: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     failures_log: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Table: activity_logs
+# ---------------------------------------------------------------------------
+
+
+class ActivityLog(Base):
+    """Logs detailing user or system activities (login, updates, deletions)."""
+
+    __tablename__ = "activity_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    username: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now(), index=True
+    )
+
+    # Relationships
+    user: Mapped[User | None] = relationship()

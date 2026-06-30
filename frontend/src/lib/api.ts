@@ -23,6 +23,8 @@ import type {
   TokenResponse,
   UserResponse,
   InventoryBulkCreate,
+  AdminUser,
+  LogsResponse,
 } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -215,6 +217,19 @@ export const exportApi = {
       a.click();
       window.URL.revokeObjectURL(url);
     }),
+};
+
+// ---------------------------------------------------------------------------
+// Admin
+// ---------------------------------------------------------------------------
+
+export const adminApi = {
+  listUsers: () => api.get<AdminUser[]>("/admin/users"),
+  deleteUser: (id: number) => api.delete(`/admin/users/${id}`),
+  sendNotification: (id: number, data: { notify_type: "alert" | "message" | "notification"; message: string }) =>
+    api.post(`/admin/users/${id}/notify`, data),
+  listLogs: (params?: { username?: string; action?: string; limit?: number; offset?: number }) =>
+    api.get<LogsResponse>("/admin/logs", { params }),
 };
 
 export default api;
