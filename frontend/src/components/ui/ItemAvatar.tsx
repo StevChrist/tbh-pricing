@@ -10,6 +10,16 @@ interface ItemAvatarProps {
   size?: number;
 }
 
+function getAbsoluteIconUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+  const baseUrl = apiUrl.replace(/\/api\/v1\/?$/, "");
+  return `${baseUrl}${url}`;
+}
+
 export function ItemAvatar({
   iconUrl,
   displayName,
@@ -20,10 +30,11 @@ export function ItemAvatar({
   const initials = getInitials(displayName);
 
   if (iconUrl) {
+    const resolvedUrl = getAbsoluteIconUrl(iconUrl);
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={iconUrl}
+        src={resolvedUrl}
         alt={displayName}
         width={size}
         height={size}

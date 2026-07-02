@@ -255,11 +255,11 @@ class MasterItem(Base):
     @property
     def icon_url(self) -> str | None:
         if self.image_data:
-            return f"http://localhost:8000/api/v1/items/{self.id}/icon"
+            return f"/api/v1/items/{self.id}/icon"
         if self.image_path:
             if self.image_path.startswith("http"):
                 return self.image_path
-            return f"http://localhost:8000{self.image_path}"
+            return self.image_path
         return None
 
     # Relationships
