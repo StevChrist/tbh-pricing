@@ -24,7 +24,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, deferred
 
 
 def _now() -> datetime:
@@ -243,7 +243,7 @@ class MasterItem(Base):
     # Serves local WebP image files
     image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     image_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    image_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    image_data: Mapped[bytes | None] = deferred(mapped_column(LargeBinary, nullable=True))
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()

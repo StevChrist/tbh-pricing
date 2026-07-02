@@ -27,6 +27,13 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = "change-me-in-production-use-a-long-random-string"
+    cookie_secure: bool | None = None
+
+    @property
+    def secure_cookies(self) -> bool:
+        if self.cookie_secure is not None:
+            return self.cookie_secure
+        return not self.debug
 
     # CORS — space-separated list of allowed origins
     cors_origins: str = "http://localhost:3000"

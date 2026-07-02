@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core import security
+from app.core.config import settings
 from app.db import crud
 from app.db.database import get_db
 from app.db.models import User
@@ -67,7 +68,7 @@ async def register(
         httponly=True,
         samesite="lax",
         max_age=_COOKIE_MAX_AGE,
-        secure=False,  # set True behind HTTPS in production
+        secure=settings.secure_cookies,
     )
     logger.info("New user registered: %s (id=%d)", user.username, user.id)
     await db.commit()
@@ -124,7 +125,7 @@ async def login(
         httponly=True,
         samesite="lax",
         max_age=_COOKIE_MAX_AGE,
-        secure=False,
+        secure=settings.secure_cookies,
     )
     logger.info("User logged in: %s (id=%d)", user.username, user.id)
     await db.commit()

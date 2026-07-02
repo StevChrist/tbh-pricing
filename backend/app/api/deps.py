@@ -11,6 +11,7 @@ from fastapi import Cookie, Depends, HTTPException, Response, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
+from app.core.config import settings
 from app.db import crud
 from app.db.database import get_db
 from app.db.models import User
@@ -91,7 +92,7 @@ async def get_current_user(
                     httponly=True,
                     samesite="lax",
                     max_age=int(new_exp_ts - now_ts),
-                    secure=False,
+                    secure=settings.secure_cookies,
                 )
                 logger.info("Session extended/slid for user id=%s. New expiry: %s", user_id, datetime.fromtimestamp(new_exp_ts, tz=timezone.utc))
 
