@@ -77,3 +77,34 @@ async def download_and_cache_image(
     except Exception as e:
         logger.error("Error downloading/converting image for item %d from %s: %s", item_id, source_url, e)
         return False, None, None
+
+
+async def download_image_as_webp(
+    source_url: str,
+) -> Tuple[bytes | None, str | None]:
+    """
+    Download image from source_url, convert it to WebP bytes and compute the MD5 hash.
+    
+    Returns:
+        (webp_bytes: bytes | None, image_hash: str | None)
+    """
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0, headers=headers, follow_redirects=True) as client:
+            response = await client.get(source_url)
+            if response.status_code != 200:
+                logger.warning("Failed to download image from %s (Status: %d)", source_url, response.status_code)
+                return None, None
+            
+            raw_bytes = response.content
+            
+        new_hash = calculate_md5(raw_bytes)
+        
+        # Convert to WebP asynchronously in thread pool
+        webp_bytes = await asyncio.to_thread(_convert_png_to_webp, raw_bytes)
+        
+        return webp_bytes, new_hash
+
+    except Exception as e:
+        logger.error("Error downloading/converting image from %s: %s", source_url, e)
+        return None, None

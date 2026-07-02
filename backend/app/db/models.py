@@ -20,6 +20,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    LargeBinary,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -242,6 +243,7 @@ class MasterItem(Base):
     # Serves local WebP image files
     image_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     image_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()
@@ -252,6 +254,8 @@ class MasterItem(Base):
 
     @property
     def icon_url(self) -> str | None:
+        if self.image_data:
+            return f"http://localhost:8000/api/v1/items/{self.id}/icon"
         if self.image_path:
             if self.image_path.startswith("http"):
                 return self.image_path

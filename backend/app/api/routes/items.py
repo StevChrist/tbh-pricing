@@ -9,7 +9,7 @@ import logging
 import math
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -117,6 +117,24 @@ async def browse_items(
         limit=limit,
         pages=math.ceil(total / limit) if total else 0,
     )
+
+
+@router.get("/{item_id}/icon")
+async def get_item_icon(
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """
+    Retrieve the item icon directly from the database (BYTEA/BLOB).
+    Returns 200 OK with the binary webp data.
+    """
+    item = await crud.get_master_item_by_id(db, item_id)
+    if not item or not item.image_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item icon not found",
+        )
+    return Response(content=item.image_data, media_type="image/webp")
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

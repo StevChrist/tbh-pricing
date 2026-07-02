@@ -16,7 +16,7 @@ import {
   Pencil, Trash2, RefreshCw, Bell, X, ChevronUp, ChevronDown, ArrowUpDown
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatIDR, formatUSD, formatRelativeTime } from "@/lib/currency";
+import { formatIDR, formatUSD, formatRelativeTime, calculateSteamReceivePrice } from "@/lib/currency";
 import { inventoryApi, pricesApi, alertsApi, getErrorMessage } from "@/lib/api";
 import type { InventoryItem } from "@/types";
 import { ItemAvatar } from "@/components/ui/ItemAvatar";
@@ -787,6 +787,25 @@ export function InventoryTable({
         return (
           <span style={{ fontSize: "0.875rem", color: "var(--text)" }}>
             {formatIDR(p.lowest_price_idr)}
+          </span>
+        );
+      },
+    },
+    {
+      id: "receive_idr",
+      header: "RECEIVE (IDR)",
+      accessorFn: (r) => {
+        const p = r.latest_price?.lowest_price_idr;
+        return p != null ? calculateSteamReceivePrice(p, "IDR") : null;
+      },
+      cell: ({ row }) => {
+        const p = row.original.latest_price;
+        if (!p || p.fetch_status !== "ok")
+          return <span style={{ fontSize: "0.875rem", color: "var(--text-subtle)" }}>—</span>;
+        const receiveVal = calculateSteamReceivePrice(p.lowest_price_idr, "IDR");
+        return (
+          <span style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            {formatIDR(receiveVal)}
           </span>
         );
       },

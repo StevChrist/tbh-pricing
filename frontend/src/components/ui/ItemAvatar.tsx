@@ -27,7 +27,7 @@ export function ItemAvatar({
         alt={displayName}
         width={size}
         height={size}
-        className="rounded-md object-cover"
+        className="rounded-md object-cover [image-rendering:pixelated] [image-rendering:crisp-edges]"
         style={{ width: size, height: size }}
         onError={(e) => {
           // Fall back to initials avatar on image load error

@@ -35,6 +35,70 @@ export function formatPrice(
   return currency === "IDR" ? formatIDR(value) : formatUSD(value);
 }
 
+/**
+ * Calculates the amount the seller receives on the Steam Community Market
+ * from the buyer's price (lowest_price), accounting for Steam fees.
+ * 
+ * Steam Community Market Fees:
+ * - Steam Transaction Fee: 5% (minimum 1 cent / 179 IDR)
+ * - Game-Specific Publisher Fee: 10% (minimum 1 cent / 179 IDR)
+ * 
+ * @param buyerPrice - The price paid by the buyer (lowest_price)
+ * @param currency - "IDR" or "USD"
+ */
+export function calculateSteamReceivePrice(
+  buyerPrice: number | null | undefined,
+  currency: "IDR" | "USD"
+): number | null {
+  if (buyerPrice === null || buyerPrice === undefined || buyerPrice <= 0) {
+    return null;
+  }
+
+  if (currency === "USD") {
+    const priceCents = Math.round(buyerPrice * 100);
+    const minFee = 1; // 1 cent minimum per fee component
+    let low = 0;
+    let high = priceCents;
+    let bestR = 0;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const steamFee = Math.max(minFee, Math.floor(mid * 0.05));
+      const pubFee = Math.max(minFee, Math.floor(mid * 0.10));
+      const total = mid + steamFee + pubFee;
+
+      if (total <= priceCents) {
+        bestR = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return bestR / 100;
+  } else {
+    // IDR
+    const minFee = 179; // Minimum fee per component in IDR (equivalent to $0.01)
+    let low = 0;
+    let high = Math.round(buyerPrice);
+    let bestR = 0;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const steamFee = Math.max(minFee, Math.floor(mid * 0.05));
+      const pubFee = Math.max(minFee, Math.floor(mid * 0.10));
+      const total = mid + steamFee + pubFee;
+
+      if (total <= buyerPrice) {
+        bestR = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return bestR;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Number formatters
 // ---------------------------------------------------------------------------

@@ -107,13 +107,19 @@ async def init_db() -> None:
             connection.execute(text("ALTER TABLE notifications ADD COLUMN notification_type VARCHAR(32) DEFAULT 'message'"))
             logger.info("Database migration: Added column 'notification_type' to notifications table.")
             
-        # Drop NOT NULL constraints in PostgreSQL
         if is_postgresql:
             for col in ["alert_id", "master_item_id", "target_value"]:
                 col_info = next((c for c in inspector.get_columns("notifications") if c["name"] == col), None)
                 if col_info and not col_info.get("nullable", True):
                     connection.execute(text(f"ALTER TABLE notifications ALTER COLUMN {col} DROP NOT NULL"))
                     logger.info(f"Database migration: Dropped NOT NULL constraint on notifications.{col}")
+
+        # 3. master_items table
+        columns_items = [c["name"] for c in inspector.get_columns("master_items")]
+        if "image_data" not in columns_items:
+            binary_type = "BYTEA" if is_postgresql else "BLOB"
+            connection.execute(text(f"ALTER TABLE master_items ADD COLUMN image_data {binary_type}"))
+            logger.info("Database migration: Added column 'image_data' to master_items table.")
 
     try:
         async with engine.begin() as conn:

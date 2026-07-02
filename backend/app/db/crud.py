@@ -26,6 +26,8 @@ from app.db.models import (
     User,
 )
 
+from app.core.price_helper import calculate_steam_receive_price
+
 logger = logging.getLogger(__name__)
 
 
@@ -392,18 +394,22 @@ async def get_inventory_summary(db: AsyncSession, user_id: int) -> dict[str, Any
     for inv in inv_items:
         price = await get_latest_price(db, inv.master_item_id)
         if price and price.lowest_price_idr:
-            val_idr = price.lowest_price_idr * inv.quantity
-            total_value_idr += val_idr
-            if val_idr > highest_val:
-                highest_val = val_idr
-                highest_value_item = {
-                    "inventory_id": inv.id,
-                    "master_item_id": inv.master_item_id,
-                    "display_name": inv.master_item.display_name,
-                    "total_value_idr": val_idr,
-                }
+            receive_idr = calculate_steam_receive_price(price.lowest_price_idr, "IDR")
+            if receive_idr is not None:
+                val_idr = receive_idr * inv.quantity
+                total_value_idr += val_idr
+                if val_idr > highest_val:
+                    highest_val = val_idr
+                    highest_value_item = {
+                        "inventory_id": inv.id,
+                        "master_item_id": inv.master_item_id,
+                        "display_name": inv.master_item.display_name,
+                        "total_value_idr": val_idr,
+                    }
         if price and price.lowest_price_usd:
-            total_value_usd += price.lowest_price_usd * inv.quantity
+            receive_usd = calculate_steam_receive_price(price.lowest_price_usd, "USD")
+            if receive_usd is not None:
+                total_value_usd += receive_usd * inv.quantity
 
     # Try to get latest price refresh or sync time from settings first
     last_val = await get_setting(db, "last_run_at")
