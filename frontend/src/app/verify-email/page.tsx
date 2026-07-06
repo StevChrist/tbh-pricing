@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, MailCheck, RefreshCw } from "lucide-react";
@@ -12,7 +12,7 @@ import { OtpInput } from "@/components/ui/OtpInput";
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60; // seconds
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
@@ -327,5 +327,13 @@ export default function VerifyEmailPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "var(--bg-base, #0d0f14)" }}><Loader2 size={32} style={{ animation: "spin 1s linear infinite", color: "var(--cyan-highlight, #22d3ee)" }} /></div>}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
