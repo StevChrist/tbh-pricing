@@ -237,10 +237,10 @@ export default function ItemsPage() {
             backgroundColor: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: "12px",
-            padding: "16px 20px",
+            padding: "14px 16px",
             display: "grid",
-            gridTemplateColumns: "3.2fr 1fr 1fr 1fr 1fr 0.8fr 90px",
-            gap: "12px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+            gap: "10px",
             alignItems: "end",
             boxShadow: "var(--shadow-sm)",
           }}
@@ -529,7 +529,7 @@ export default function ItemsPage() {
                           <div style={{ width: "40px", height: "40px", flexShrink: 0 }}>
                             <ItemAvatar iconUrl={item.icon_url} displayName={item.display_name} rarity={item.rarity} size={40} />
                           </div>
-                          <span style={{ fontWeight: 500, color: getRarityStyles(item.rarity).dotColor, fontSize: "0.875rem", wordBreak: "break-word" }}>
+                          <span style={{ fontWeight: 500, color: getRarityStyles(item.rarity).dotColor, fontSize: "0.875rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "180px", display: "block" }}>
                             {item.display_name}
                           </span>
                         </div>

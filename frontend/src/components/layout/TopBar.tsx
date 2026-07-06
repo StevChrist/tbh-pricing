@@ -93,14 +93,15 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
           top: 0,
           zIndex: 50,
           backgroundColor: "var(--bg)",
-          padding: "16px 24px",
+          padding: "12px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          gap: "8px",
         }}
       >
         {/* Left: PEN Logo */}
-        <div style={{ display: "flex", alignItems: "center", width: "200px" }}>
+        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
           <Link href="https://stevchrist.site">
             <img
               src={mounted && resolvedTheme === "light" ? "/Logo PEN Black.png" : "/Logo PEN White.png"}
@@ -115,60 +116,65 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
           </Link>
         </div>
 
-        {/* Middle: Centered Navigation Capsule */}
-        <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
-          <nav
-            ref={navRef}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              backgroundColor: "var(--surface)",
-              borderRadius: "9999px",
-              padding: "6px 16px",
-              gap: "20px",
-              boxShadow: "var(--shadow-sm)",
-              position: "relative",
-            }}
-          >
-            {navLinks.map((link) => {
-              const isActive =
-                link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  prefetch={false}
-                  data-active={isActive ? "true" : "false"}
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: "0.875rem",
-                    fontWeight: 400,
-                    color: "var(--text)",
-                    textDecoration: "none",
-                    position: "relative",
-                    padding: "4px 8px",
-                    display: "inline-block",
-                  }}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-            <span
+        {/* Middle: Centered Navigation Capsule — scrollable on mobile */}
+        <div style={{ display: "flex", justifyContent: "center", flex: 1, overflow: "hidden", minWidth: 0 }}>
+          <div style={{ overflowX: "auto", overflowY: "hidden", scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
+            <nav
+              ref={navRef}
               style={{
-                position: "absolute",
-                bottom: "4px",
-                height: "1.5px",
-                backgroundColor: "var(--text)",
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "var(--surface)",
                 borderRadius: "9999px",
-                transition: "all 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
-                left: `${underlineStyle.left}px`,
-                width: `${underlineStyle.width}px`,
-                opacity: underlineStyle.opacity,
-                pointerEvents: "none",
+                padding: "6px 16px",
+                gap: "4px",
+                boxShadow: "var(--shadow-sm)",
+                position: "relative",
+                whiteSpace: "nowrap",
               }}
-            />
-          </nav>
+            >
+              {navLinks.map((link) => {
+                const isActive =
+                  link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    prefetch={false}
+                    data-active={isActive ? "true" : "false"}
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: "0.875rem",
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? "var(--text)" : "var(--text-muted)",
+                      textDecoration: "none",
+                      position: "relative",
+                      padding: "4px 10px",
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: "4px",
+                  height: "1.5px",
+                  backgroundColor: "var(--text)",
+                  borderRadius: "9999px",
+                  transition: "all 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+                  left: `${underlineStyle.left}px`,
+                  width: `${underlineStyle.width}px`,
+                  opacity: underlineStyle.opacity,
+                  pointerEvents: "none",
+                }}
+              />
+            </nav>
+          </div>
         </div>
 
         {/* Right: Controls & Dropdown */}
@@ -177,8 +183,8 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-end",
-            gap: "12px",
-            width: "200px",
+            gap: "8px",
+            flexShrink: 0,
           }}
         >
           {/* Notifications */}
