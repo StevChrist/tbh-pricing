@@ -207,9 +207,22 @@ function VerifyEmailContent() {
         {/* OTP Form */}
         <form onSubmit={handleVerify} style={{ width: "100%" }}>
           {/* 6 digit boxes */}
-          <div style={{ marginBottom: "28px" }}>
+          <div style={{ marginBottom: "12px" }}>
             <OtpInput value={digits} onChange={setDigits} disabled={verifying} />
           </div>
+
+          {/* Spam warning */}
+          <p style={{
+            fontSize: "0.72rem",
+            color: "var(--text-muted)",
+            textAlign: "center",
+            marginBottom: "16px",
+            lineHeight: 1.5,
+          }}>
+            Tidak menerima email?{" "}
+            <strong style={{ color: "var(--cyan-highlight)" }}>Periksa folder Spam / Junk</strong>{" "}
+            di kotak masukmu.
+          </p>
 
           {/* Verify button */}
           <button

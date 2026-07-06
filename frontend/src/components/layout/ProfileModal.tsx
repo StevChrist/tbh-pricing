@@ -555,6 +555,9 @@ export function ProfileModal({ open, onClose, user, onUserUpdate }: ProfileModal
                     Enter Code
                   </label>
                   <OtpInput value={emailOtp} onChange={setEmailOtp} disabled={isUpdatingEmail} />
+                  <p style={{ fontSize: "0.68rem", color: "var(--text-muted)", textAlign: "center", marginTop: "8px", lineHeight: 1.4 }}>
+                    Tidak menerima email? <strong style={{ color: "var(--cyan-highlight)" }}>Cek folder Spam / Junk</strong>.
+                  </p>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
