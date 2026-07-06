@@ -12,16 +12,24 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg("");
     try {
       await authApi.login({ username, password });
       toast.success("Login successful!");
       router.push("/");
     } catch (err) {
-      toast.error(getErrorMessage(err));
+      const msg = getErrorMessage(err);
+      if (msg === "wrong username" || msg === "wrong password") {
+        setErrorMsg(msg);
+      } else {
+        setErrorMsg(msg || "Invalid username or password");
+      }
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -158,6 +166,35 @@ export default function LoginPage() {
                 transition: "border-color var(--transition)",
               }}
             />
+          </div>
+
+          {errorMsg && (
+            <div
+              style={{
+                color: "#ef4444",
+                fontSize: "0.75rem",
+                fontWeight: 500,
+                textAlign: "left",
+                marginTop: "-8px",
+              }}
+            >
+              {errorMsg}
+            </div>
+          )}
+
+          {/* Forgot password link */}
+          <div style={{ textAlign: "right", marginTop: "-8px" }}>
+            <Link
+              href="/forgot-password"
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--cyan-highlight)",
+                textDecoration: "none",
+                fontWeight: 500,
+              }}
+            >
+              Forgot password?
+            </Link>
           </div>
 
           <button

@@ -1,30 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { authApi, getErrorMessage } from "@/lib/api";
 
-export default function RegisterPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
-      return;
-    }
     setLoading(true);
     try {
-      await authApi.register({ username, email, password });
-      toast.success("Account created! Check your email for a verification code.");
-      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      await authApi.forgotPassword({ email });
+      toast.success("If the account exists, a reset code has been sent to your email.");
+      // Redirect to reset page so user can enter OTP + new password
+      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -50,28 +45,28 @@ export default function RegisterPage() {
           backgroundColor: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: "16px",
-          padding: "32px",
+          padding: "36px 32px 32px",
           boxShadow: "0 0 50px var(--glow-color)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
         }}
       >
-        {/* Logo */}
+        {/* Icon */}
         <div
           style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "12px",
+            width: "52px",
+            height: "52px",
+            borderRadius: "14px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "rgba(0, 229, 255, 0.08)",
             border: "1px solid rgba(0, 229, 255, 0.25)",
-            marginBottom: "16px",
+            marginBottom: "20px",
           }}
         >
-          <Package size={24} style={{ color: "var(--cyan-highlight)" }} />
+          <KeyRound size={26} style={{ color: "var(--cyan-highlight)" }} />
         </div>
 
         {/* Title */}
@@ -82,11 +77,12 @@ export default function RegisterPage() {
             fontWeight: 500,
             color: "var(--text)",
             textAlign: "center",
-            marginBottom: "4px",
+            marginBottom: "8px",
           }}
         >
-          TBH Price Tracker
+          Forgot password?
         </h1>
+
         <p
           style={{
             fontFamily: "var(--font-body)",
@@ -94,15 +90,20 @@ export default function RegisterPage() {
             color: "var(--text-muted)",
             textAlign: "center",
             marginBottom: "28px",
+            lineHeight: 1.6,
           }}
         >
-          Create your account
+          Enter your account email and we&apos;ll send you a 6-digit reset code.
         </p>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}
+        >
           <div>
             <label
+              htmlFor="forgot-email"
               style={{
                 display: "block",
                 fontSize: "0.75rem",
@@ -111,78 +112,15 @@ export default function RegisterPage() {
                 marginBottom: "6px",
               }}
             >
-              Username
+              Email address
             </label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              placeholder="Enter username"
-              style={{
-                width: "100%",
-                borderRadius: "8px",
-                border: "1px solid var(--border)",
-                padding: "10px 14px",
-                fontSize: "0.875rem",
-                backgroundColor: "var(--surface-offset)",
-                color: "var(--text)",
-                outline: "none",
-                transition: "border-color var(--transition)",
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "0.75rem",
-                fontWeight: 500,
-                color: "var(--text-muted)",
-                marginBottom: "6px",
-              }}
-            >
-              Email
-            </label>
-            <input
+              id="forgot-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Enter email"
-              style={{
-                width: "100%",
-                borderRadius: "8px",
-                border: "1px solid var(--border)",
-                padding: "10px 14px",
-                fontSize: "0.875rem",
-                backgroundColor: "var(--surface-offset)",
-                color: "var(--text)",
-                outline: "none",
-                transition: "border-color var(--transition)",
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "0.75rem",
-                fontWeight: 500,
-                color: "var(--text-muted)",
-                marginBottom: "6px",
-              }}
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter password"
+              placeholder="Enter your email"
               style={{
                 width: "100%",
                 borderRadius: "8px",
@@ -201,7 +139,7 @@ export default function RegisterPage() {
             type="submit"
             disabled={loading}
             style={{
-              marginTop: "8px",
+              marginTop: "4px",
               width: "100%",
               padding: "12px",
               borderRadius: "8px",
@@ -214,13 +152,14 @@ export default function RegisterPage() {
               justifyContent: "center",
               gap: "8px",
               transition: "background-color var(--transition)",
+              opacity: loading ? 0.8 : 1,
             }}
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : "Register"}
+            {loading ? <Loader2 size={16} className="animate-spin" /> : "Send Reset Code"}
           </button>
         </form>
 
-        {/* Login Link */}
+        {/* Back to login */}
         <p
           style={{
             marginTop: "24px",
@@ -229,14 +168,10 @@ export default function RegisterPage() {
             textAlign: "center",
           }}
         >
-          Have account?{" "}
+          Remember your password?{" "}
           <Link
             href="/login"
-            style={{
-              color: "var(--cyan-highlight)",
-              textDecoration: "none",
-              fontWeight: 500,
-            }}
+            style={{ color: "var(--cyan-highlight)", textDecoration: "none", fontWeight: 500 }}
           >
             Sign in
           </Link>

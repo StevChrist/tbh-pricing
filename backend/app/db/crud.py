@@ -76,6 +76,13 @@ async def update_user_last_login(db: AsyncSession, user_id: int) -> None:
     )
 
 
+async def set_user_email_verified(db: AsyncSession, user_id: int) -> None:
+    """Mark a user's email_verified flag as True."""
+    await db.execute(
+        update(User).where(User.id == user_id).values(email_verified=True)
+    )
+
+
 async def update_user_password(db: AsyncSession, user_id: int, new_password_hash: str) -> None:
     await db.execute(
         update(User).where(User.id == user_id).values(password_hash=new_password_hash)
@@ -874,6 +881,8 @@ async def get_all_users_admin(db: AsyncSession) -> list[dict]:
             "email": u.email,
             "role": u.role,
             "is_active": u.is_active,
+            "status": u.status,
+            "email_verified": u.email_verified,
             "created_at": u.created_at,
             "last_login_at": u.last_login_at,
             "last_active_at": u.last_active_at,
@@ -939,3 +948,23 @@ async def count_activity_logs(
         stmt = stmt.where(ActivityLog.action == action)
     result = await db.execute(stmt)
     return result.scalar() or 0
+
+
+async def log_security_event(
+    db: AsyncSession,
+    user_id: int | None,
+    severity: str,
+    ip_address: str | None,
+    description: str,
+) -> Any:
+    from app.db.models import SecurityEvent
+    event = SecurityEvent(
+        user_id=user_id,
+        severity=severity,
+        ip_address=ip_address,
+        description=description,
+        timestamp=_now(),
+    )
+    db.add(event)
+    await db.flush()
+    return event

@@ -26,7 +26,8 @@ export function NotifPopupCarousel({ onUnreadChange }: NotifPopupCarouselProps) 
   const shownRef = useRef<Set<number>>(new Set());
 
   const fetchUnread = useCallback(async () => {
-    if (pathname === "/login" || pathname === "/register") return;
+    const publicPaths = ["/login", "/register", "/verify-email", "/forgot-password", "/reset-password"];
+    if (publicPaths.includes(pathname)) return;
     try {
       const { data } = await notificationsApi.unread();
       

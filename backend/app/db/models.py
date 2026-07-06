@@ -1,7 +1,8 @@
 """
 SQLAlchemy ORM models for TBH Inventory Price Tracker.
 All tables: users, master_items, market_summary, inventory_items,
-price_history, price_alerts, notifications, app_settings, sync_logs.
+price_history, price_alerts, notifications, app_settings, sync_logs,
+user_otps.
 """
 
 from __future__ import annotations
@@ -112,6 +113,19 @@ class AlertDirectionEnum(str, enum.Enum):
     DOWN = "down"
 
 
+class OtpPurposeEnum(str, enum.Enum):
+    REGISTER = "REGISTER"
+    RESET_PASSWORD = "RESET_PASSWORD"
+    DELETE_ACCOUNT = "DELETE_ACCOUNT"
+    CHANGE_EMAIL = "CHANGE_EMAIL"
+
+
+class UserStatusEnum(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    BANNED = "BANNED"
+
+
 # ---------------------------------------------------------------------------
 # Base
 # ---------------------------------------------------------------------------
@@ -148,6 +162,18 @@ class User(Base):
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     daily_active_seconds: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     active_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    
+    # Username and Email limits tracking
+    username_changes_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_email_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    # Account status & session invalidation
+    status: Mapped[str] = mapped_column(String(32), default="ACTIVE", server_default="ACTIVE")
+    sessions_invalidated_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    # Account Lockout Protection
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()
@@ -165,6 +191,18 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    user_otps: Mapped[list["UserOtp"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    login_histories: Mapped[list["UserLoginHistory"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    security_events: Mapped[list["SecurityEvent"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -522,3 +560,162 @@ class ActivityLog(Base):
 
     # Relationships
     user: Mapped[User | None] = relationship()
+
+
+# ---------------------------------------------------------------------------
+# Table: user_otps
+# ---------------------------------------------------------------------------
+
+
+class UserOtp(Base):
+    """
+    One-time passwords for email-based verification flows.
+
+    Reusable for: REGISTER, RESET_PASSWORD, DELETE_ACCOUNT.
+    OTPs are stored as HMAC-SHA256 hashes — never as plaintext.
+    Cascade-deletes when the parent user is deleted.
+    """
+
+    __tablename__ = "user_otps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    purpose: Mapped[str] = mapped_column(
+        Enum(OtpPurposeEnum, name="otp_purpose_enum"), nullable=False
+    )
+    otp_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    resend_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now, server_default=func.now()
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship(back_populates="user_otps")
+
+    __table_args__ = (
+        Index("idx_user_otps_user_id", "user_id"),
+        Index("idx_user_otps_expires_at", "expires_at"),
+        Index("idx_user_otps_user_purpose", "user_id", "purpose"),
+    )
+
+    # -----------------------------------------------------------------------
+    # Helper methods
+    # -----------------------------------------------------------------------
+
+    def is_expired(self) -> bool:
+        """Return True if this OTP has passed its expiry timestamp."""
+        return datetime.now(timezone.utc) >= self.expires_at
+
+    def remaining_seconds(self) -> int:
+        """
+        Return the number of seconds until this OTP expires.
+        Returns 0 if already expired.
+        """
+        delta = self.expires_at - datetime.now(timezone.utc)
+        return max(0, int(delta.total_seconds()))
+
+    def can_resend(self, resend_cooldown_seconds: int, max_resend: int) -> bool:
+        """
+        Return True if a resend is permitted.
+
+        Both conditions must hold:
+        - resend_count is below max_resend
+        - cooldown period since last_sent_at has elapsed
+        """
+        if self.resend_count >= max_resend:
+            return False
+        if self.last_sent_at is None:
+            return True
+        elapsed = (datetime.now(timezone.utc) - self.last_sent_at).total_seconds()
+        return elapsed >= resend_cooldown_seconds
+
+
+# ---------------------------------------------------------------------------
+# Table: user_login_history
+# ---------------------------------------------------------------------------
+
+
+class UserLoginHistory(Base):
+    """Stores the login history logs of users including device/browser."""
+
+    __tablename__ = "user_login_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now(), index=True
+    )
+    ip_address: Mapped[str] = mapped_column(String(64), nullable=False)
+    result: Mapped[str] = mapped_column(String(32), nullable=False) # e.g. "SUCCESS", "FAILURE"
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="SUCCESS", server_default="'SUCCESS'")
+    reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    browser: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    os: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    device: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    # Relationships
+    user: Mapped[User] = relationship(back_populates="login_histories")
+
+
+# ---------------------------------------------------------------------------
+# Table: user_sessions
+# ---------------------------------------------------------------------------
+
+
+class UserSession(Base):
+    """Active session tracker for all users."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)  # session UUID
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
+    last_activity_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now()
+    )
+    ip_address: Mapped[str] = mapped_column(String(64), nullable=False)
+    browser: Mapped[str] = mapped_column(String(128), nullable=False)
+    os: Mapped[str] = mapped_column(String(128), nullable=False)
+    device: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+    user: Mapped[User] = relationship(back_populates="sessions")
+
+
+# ---------------------------------------------------------------------------
+# Table: security_events
+# ---------------------------------------------------------------------------
+
+
+class SecurityEvent(Base):
+    """Security events audit logger."""
+
+    __tablename__ = "security_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=func.now(), index=True
+    )
+    severity: Mapped[str] = mapped_column(String(32), nullable=False)  # "INFO", "WARNING", "CRITICAL"
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    description: Mapped[str] = mapped_column(String(512), nullable=False)
+
+    user: Mapped[User | None] = relationship(back_populates="security_events")

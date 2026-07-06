@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Megaphone, Sun, Moon, User as UserIcon, ChevronDown, LogOut } from "lucide-react";
+import { Megaphone, Sun, Moon, User as UserIcon, ChevronDown, LogOut, Shield } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { ProfileModal } from "./ProfileModal";
 
@@ -78,13 +78,14 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
       ? [
           { href: "/users", label: "Users" },
           { href: "/logs", label: "Logs" },
+          { href: "/admin/security", label: "Security" },
         ]
       : []),
   ];
 
   return (
     <>
-      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} user={user} />
+      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} user={user} onUserUpdate={setUser} />
 
       <header
         style={{
@@ -324,9 +325,35 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
                       fontSize: "0.8125rem",
                       color: "var(--text)",
                       textAlign: "left",
+                      backgroundColor: "transparent",
+                      border: "none",
+                      cursor: "pointer",
                     }}
                   >
                     <UserIcon size={14} /> Profile Settings
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      router.push("/settings/security");
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "var(--radius-md)",
+                      fontSize: "0.8125rem",
+                      color: "var(--text)",
+                      textAlign: "left",
+                      backgroundColor: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Shield size={14} /> Security Settings
                   </button>
 
                   <button

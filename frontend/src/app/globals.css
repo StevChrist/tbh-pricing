@@ -189,3 +189,48 @@ table {
 .animate-fade {
   animation: fade-in-simple 0.4s ease-out forwards;
 }
+
+/* Security Center & Settings Animation Enhancements */
+.security-card-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.security-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--cyan-highlight) !important;
+  box-shadow: 0 4px 20px rgba(0, 229, 255, 0.08) !important;
+}
+
+.stat-card-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stat-card-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+}
+
+.btn-hover-effect {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-hover-effect:hover {
+  filter: brightness(1.1);
+  transform: scale(1.03);
+}
+.btn-hover-effect:active {
+  transform: scale(0.97);
+}
+
+.tab-btn-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tab-btn-hover:hover {
+  color: var(--cyan-highlight) !important;
+  background-color: rgba(0, 229, 255, 0.05) !important;
+}
+
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}

@@ -243,8 +243,8 @@ async def run_startup_jobs() -> None:
 
 
 async def cleanup_old_logs_job() -> None:
-    """Scheduled task to delete activity logs older than 3 months (90 days)."""
-    logger.info("Scheduler: running activity logs cleanup job.")
+    """Scheduled task to delete activity logs older than 3 months (90 days) and expired OTPs."""
+    logger.info("Scheduler: running activity logs and expired OTPs cleanup job.")
     async with AsyncSessionLocal() as db:
         try:
             rows = await crud.cleanup_activity_logs(db)
@@ -252,6 +252,15 @@ async def cleanup_old_logs_job() -> None:
             logger.info("Scheduler: cleaned up %d old activity logs.", rows)
         except Exception as exc:
             logger.error("Scheduler: failed to clean up old activity logs: %s", exc)
+
+        try:
+            from app.services import otp_service
+            otp_rows = await otp_service.cleanup(db)
+            await db.commit()
+            if otp_rows:
+                logger.info("Scheduler: cleaned up %d expired OTP record(s).", otp_rows)
+        except Exception as exc:
+            logger.error("Scheduler: failed to clean up expired OTPs: %s", exc)
 
 
 def create_scheduler(interval_minutes: int = 30) -> AsyncIOScheduler:

@@ -94,7 +94,13 @@ async def init_db() -> None:
             "last_ip_address": "VARCHAR(64)",
             "last_active_at": datetime_type,
             "daily_active_seconds": "INTEGER DEFAULT 0",
-            "active_date": "VARCHAR(10)"
+            "active_date": "VARCHAR(10)",
+            "username_changes_count": "INTEGER DEFAULT 0",
+            "last_email_changed_at": datetime_type,
+            "status": "VARCHAR(32) DEFAULT 'ACTIVE'",
+            "sessions_invalidated_before": datetime_type,
+            "failed_login_attempts": "INTEGER DEFAULT 0",
+            "locked_until": datetime_type
         }
         for col_name, col_type in new_cols_users.items():
             if col_name not in columns_users:
@@ -120,6 +126,25 @@ async def init_db() -> None:
             binary_type = "BYTEA" if is_postgresql else "BLOB"
             connection.execute(text(f"ALTER TABLE master_items ADD COLUMN image_data {binary_type}"))
             logger.info("Database migration: Added column 'image_data' to master_items table.")
+
+        # 4. user_login_history table
+        columns_login_hist = [c["name"] for c in inspector.get_columns("user_login_history")]
+        new_cols_lh = {
+            "os": "VARCHAR(128)",
+            "status": "VARCHAR(32) DEFAULT 'SUCCESS'",
+            "reason": "VARCHAR(255)"
+        }
+        for col_name, col_type in new_cols_lh.items():
+            if col_name not in columns_login_hist:
+                connection.execute(text(f"ALTER TABLE user_login_history ADD COLUMN {col_name} {col_type}"))
+                logger.info(f"Database migration: Added column '{col_name}' to user_login_history table.")
+
+        if is_postgresql:
+            try:
+                connection.execute(text("ALTER TABLE user_login_history ALTER COLUMN user_id DROP NOT NULL"))
+                logger.info("Database migration: Dropped NOT NULL constraint on user_login_history.user_id")
+            except Exception as e:
+                logger.warning("Database migration: Could not drop NOT NULL constraint on user_login_history.user_id: %s", e)
 
     try:
         async with engine.begin() as conn:
@@ -152,6 +177,10 @@ async def init_db() -> None:
             )
             session.add(admin_user)
             logger.info("Default admin user created (username: admin, password: admin).")
+        else:
+            if not admin_user.email_verified:
+                admin_user.email_verified = True
+                logger.info("Default admin user 'email_verified' flag updated to True.")
             
         await session.commit()
     logger.info("Default app_settings and admin user seeded.")

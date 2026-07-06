@@ -13,11 +13,13 @@ from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
+from app.core.config import settings
+
 # ---------------------------------------------------------------------------
 # Config — loaded from environment via config.py
 # ---------------------------------------------------------------------------
 
-SECRET_KEY: str = ""          # set by main.py on startup via settings
+SECRET_KEY: str = settings.secret_key
 ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS: int = 7
 SESSION_MAX_AGE_DAYS: int = 30

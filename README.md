@@ -92,6 +92,30 @@ Displays details about the application version (dynamic theme-aware badge), game
 - **Containerization**: Docker & Docker Compose
 
 Thanks for visiting and checking out my code!
+
+---
+
+## 🔒 Authentication & OTP Infrastructure
+
+The project includes a robust, production-grade security and authentication system incorporating:
+1. **HttpOnly Cookie JWT Session**: Tokens are stored strictly in browser cookies to mitigate XSS risk.
+2. **Register Verification**: User accounts are created in an unverified state; activation requires entering a 6-digit OTP code sent via email.
+3. **Forgot Password**: Secured by email OTP code. The endpoint uses constant-time validation and protects against email enumeration.
+4. **Delete Account**: Highly secure flow requiring both password validation and a second-factor OTP confirmation before permanent cascade deletion.
+
+### ⚙️ OTP Configuration (.env)
+
+The following parameters in `.env` govern the OTP system:
+- `SMTP_HOST`: Host of your SMTP provider (e.g. `smtp.gmail.com`). Leave empty to log OTP codes to stdout.
+- `SMTP_PORT`: Port (typically `587` or `465`).
+- `SMTP_USERNAME` / `SMTP_PASSWORD`: SMTP credentials.
+- `SMTP_FROM`: Sender address.
+- `OTP_EXPIRE_MINUTES`: Expiry window for OTP codes (default: `5`).
+- `OTP_RESEND_SECONDS`: Cooldown interval in seconds before a code can be resent (default: `60`).
+- `OTP_MAX_ATTEMPTS`: Max incorrect OTP entry attempts before code is invalidated (default: `5`).
+- `OTP_MAX_RESEND`: Max resend requests permitted per session (default: `3`).
+
+---
 ***Copyright © 2026 by Steven | All Rights Reserved**
 
 Built for portfolio and personal use.

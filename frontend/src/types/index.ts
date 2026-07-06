@@ -28,6 +28,56 @@ export interface RegisterRequest {
   password: string;
 }
 
+export interface RegisterResponse {
+  message: string;
+  email: string; // partially masked: u***@example.com
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  otp: string; // 6-digit numeric string
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+// --------------- Forgot Password ---------------
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface VerifyResetOtpRequest {
+  email: string;
+  otp: string; // 6-digit numeric string
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  new_password: string;
+}
+
+export interface ResendResetOtpRequest {
+  email: string;
+}
+
+// --------------- Delete Account ---------------
+
+export interface RequestAccountDeletionRequest {
+  password: string;
+}
+
+export interface DeleteAccountRequest {
+  otp: string; // 6-digit numeric string
+}
+
+
 // --------------- Master Items ---------------
 
 export type Rarity =
@@ -261,6 +311,8 @@ export interface AdminUser {
   email: string;
   role: string;
   is_active: boolean;
+  status: string;
+  email_verified: boolean;
   created_at: string;
   last_login_at: string | null;
   last_active_at: string | null;
@@ -284,4 +336,40 @@ export interface LogsResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface AdminStats {
+  total_users: number;
+  verified_users: number;
+  admins: number;
+  suspended_users: number;
+  banned_users: number;
+  active_today: number;
+}
+
+export interface LoginHistory {
+  id: number;
+  timestamp: string;
+  ip_address: string;
+  result: string;
+  browser: string | null;
+  device: string | null;
+}
+
+export interface UserDetail {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  status: string;
+  email_verified: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  last_active_at: string | null;
+  last_ip_address: string | null;
+  daily_active_seconds: number;
+  inventory_count: number;
+  total_login_count: number;
+  recent_activities: ActivityLog[];
+  login_history: LoginHistory[];
 }

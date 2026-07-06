@@ -52,5 +52,20 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/tbh_price"
 
+    # SMTP — email sending (all optional; email features are disabled if smtp_host is unset)
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "noreply@example.com"
+    smtp_tls: bool = True
+
+    # OTP — one-time password configuration
+    otp_expire_minutes: int = 5
+    otp_length: int = 6
+    otp_resend_seconds: int = 60
+    otp_max_attempts: int = 5
+    otp_max_resend: int = 3
+
 
 settings = Settings()
