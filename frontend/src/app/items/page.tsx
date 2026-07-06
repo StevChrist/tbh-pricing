@@ -23,6 +23,15 @@ interface BrowseItem extends MasterItem {
 export default function ItemsPage() {
   const [items, setItems] = useState<BrowseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const [query, setQuery] = useState("");
   const [filterRarity, setFilterRarity] = useState<string>("All");
   const [filterGearType, setFilterGearType] = useState<string>("All");
@@ -239,12 +248,13 @@ export default function ItemsPage() {
             borderRadius: "12px",
             padding: "14px 16px",
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+            gridTemplateColumns: isMobile ? "repeat(auto-fit, minmax(110px, 1fr))" : "3.2fr 1fr 1fr 1fr 1fr 0.8fr 90px",
             gap: "10px",
             alignItems: "end",
             boxShadow: "var(--shadow-sm)",
           }}
         >
+
           {/* Search Input */}
           <div>
             <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "6px" }}>
@@ -444,7 +454,7 @@ export default function ItemsPage() {
           <button
             onClick={handleClearFilters}
             style={{
-              width: "100%",
+              width: isMobile ? "100%" : "90px",
               height: "36px",
               borderRadius: "8px",
               backgroundColor: "transparent",
@@ -452,6 +462,7 @@ export default function ItemsPage() {
               color: "var(--primary)",
               fontSize: "0.8125rem",
               fontWeight: 600,
+
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
