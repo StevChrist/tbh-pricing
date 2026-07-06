@@ -128,7 +128,15 @@ async def get_item_icon(
     Retrieve the item icon directly from the database (BYTEA/BLOB).
     Returns 200 OK with the binary webp data.
     """
-    item = await crud.get_master_item_by_id(db, item_id)
+    from sqlalchemy import select
+    from sqlalchemy.orm import undefer
+    from app.db.models import MasterItem
+    result = await db.execute(
+        select(MasterItem)
+        .where(MasterItem.id == item_id)
+        .options(undefer(MasterItem.image_data))
+    )
+    item = result.scalar_one_or_none()
     if not item or not item.image_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

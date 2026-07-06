@@ -233,12 +233,12 @@ async def run_synchronization(db: AsyncSession, mode: str = "daily") -> Dict[str
                 db_item.image_hash = "mock_hash_for_testing"
                 db_item.image_data = b"mock_data"
                 sync_log.images_reused += 1
-            elif icon_name and (is_new or mode == "full" or not db_item.image_hash or not db_item.image_data):
+            elif icon_name and (is_new or mode == "full" or not db_item.image_hash):
                 icon_url = f"https://taskbarherowiki.com/icons/{icon_name}.png"
                 try:
                     webp_bytes, new_hash = await download_image_as_webp(icon_url)
                     if webp_bytes:
-                        reused = (db_item.image_hash == new_hash and db_item.image_data is not None)
+                        reused = (db_item.image_hash == new_hash)
                         db_item.image_data = webp_bytes
                         db_item.image_hash = new_hash
                         if reused:
