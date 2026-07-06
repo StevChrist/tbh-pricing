@@ -254,7 +254,7 @@ class MasterItem(Base):
 
     @property
     def icon_url(self) -> str | None:
-        if self.image_data:
+        if self.image_hash:
             return f"/api/v1/items/{self.id}/icon"
         if self.image_path:
             if self.image_path.startswith("http"):
