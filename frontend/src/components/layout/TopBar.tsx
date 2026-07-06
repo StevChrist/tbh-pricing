@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  Megaphone, Sun, Moon, User as UserIcon, LogOut, Shield,
+  Megaphone, Sun, Moon, User as UserIcon, ChevronDown, LogOut, Shield,
   LayoutDashboard, Package, Search, BookOpen, Info, Users, ScrollText, ShieldCheck, Menu, X,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
@@ -39,7 +39,7 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
 
   // Detect mobile breakpoint
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => setIsMobile(window.innerWidth < 1024);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -316,33 +316,39 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
         </>
       )}
 
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          backgroundColor: "var(--bg)",
-          padding: "12px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-        }}
-      >
-        {/* Left: PEN Logo */}
-        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-          <Link href="https://stevchrist.site">
-            <img
-              src={mounted && resolvedTheme === "light" ? "/Logo PEN Black.png" : "/Logo PEN White.png"}
-              alt="PEN Logo"
-              style={{ height: "28px", width: "auto", objectFit: "contain", display: "block" }}
-            />
-          </Link>
-        </div>
+      {/* Render Desktop Header or Mobile Header based on breakpoint */}
+      {!isMobile ? (
+        // EXACT ORIGINAL DESKTOP HEADER LAYOUT
+        <header
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            backgroundColor: "var(--bg)",
+            padding: "16px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* Left: PEN Logo */}
+          <div style={{ display: "flex", alignItems: "center", width: "200px" }}>
+            <Link href="https://stevchrist.site">
+              <img
+                src={mounted && resolvedTheme === "light" ? "/Logo PEN Black.png" : "/Logo PEN White.png"}
+                alt="PEN Logo"
+                style={{
+                  height: "28px",
+                  width: "auto",
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            </Link>
+          </div>
 
-        {/* Desktop: Middle Nav Capsule */}
-        {!isMobile && (
-          <div style={{ display: "flex", justifyContent: "center", flex: 1, overflow: "hidden", minWidth: 0 }}>
+          {/* Middle: Centered Navigation Capsule */}
+          <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
             <nav
               ref={navRef}
               style={{
@@ -351,14 +357,14 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
                 backgroundColor: "var(--surface)",
                 borderRadius: "9999px",
                 padding: "6px 16px",
-                gap: "4px",
+                gap: "20px",
                 boxShadow: "var(--shadow-sm)",
                 position: "relative",
-                whiteSpace: "nowrap",
               }}
             >
               {navLinks.map((link) => {
-                const isActive = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+                const isActive =
+                  link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
                 return (
                   <Link
                     key={link.href}
@@ -368,14 +374,12 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
                     style={{
                       fontFamily: "var(--font-body)",
                       fontSize: "0.875rem",
-                      fontWeight: isActive ? 600 : 400,
-                      color: isActive ? "var(--text)" : "var(--text-muted)",
+                      fontWeight: 400,
+                      color: "var(--text)",
                       textDecoration: "none",
                       position: "relative",
-                      padding: "4px 10px",
+                      padding: "4px 8px",
                       display: "inline-block",
-                      whiteSpace: "nowrap",
-                      flexShrink: 0,
                     }}
                   >
                     {link.label}
@@ -398,20 +402,46 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
               />
             </nav>
           </div>
-        )}
 
-        {/* Desktop: Right Controls */}
-        {!isMobile && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexShrink: 0 }}>
+          {/* Right: Controls & Dropdown */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: "12px",
+              width: "200px",
+            }}
+          >
             {/* Notifications */}
             <Link
               href="/mailbox"
               aria-label="Notifications"
-              style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", color: "var(--text-muted)", transition: "color var(--transition)" }}
+              style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "32px",
+                height: "32px",
+                color: "var(--text-muted)",
+                transition: "color var(--transition)",
+              }}
             >
               <Megaphone size={16} style={{ color: "var(--text)" }} />
               {unreadCount > 0 && (
-                <span style={{ position: "absolute", top: "2px", right: "2px", width: "8px", height: "8px", borderRadius: "9999px", backgroundColor: "var(--cyan-highlight)", border: "1.5px solid var(--bg)" }} />
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "2px",
+                    right: "2px",
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "9999px",
+                    backgroundColor: "var(--cyan-highlight)",
+                    border: "1.5px solid var(--bg)",
+                  }}
+                />
               )}
             </Link>
 
@@ -420,11 +450,21 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 aria-label="Toggle theme"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", transition: "color var(--transition)" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                  color: "var(--text-muted)",
+                  transition: "color var(--transition)",
+                }}
               >
-                {theme === "dark"
-                  ? <Sun size={16} style={{ color: "var(--text)" }} />
-                  : <Moon size={16} style={{ color: "var(--text)" }} />}
+                {theme === "dark" ? (
+                  <Sun size={16} style={{ color: "var(--text)" }} />
+                ) : (
+                  <Moon size={16} style={{ color: "var(--text)" }} />
+                )}
               </button>
             )}
 
@@ -432,32 +472,139 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <button
                 onClick={() => setDropdownOpen((v) => !v)}
-                style={{ display: "flex", alignItems: "center", gap: "8px", height: "36px", padding: "0 14px", borderRadius: "9999px", backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", cursor: "pointer", transition: "background-color var(--transition)" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  height: "36px",
+                  padding: "0 14px",
+                  borderRadius: "9999px",
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  transition: "background-color var(--transition)",
+                }}
               >
                 <UserIcon size={14} style={{ color: "var(--text)" }} />
-                <span style={{ fontFamily: "var(--font-body)", fontSize: "0.8125rem", fontWeight: 400, maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-body)",
+                    fontSize: "0.8125rem",
+                    fontWeight: 400,
+                    maxWidth: "100px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {user ? `@${user.username}` : "@username"}
                 </span>
+                <ChevronDown
+                  size={12}
+                  style={{
+                    color: "var(--text-muted)",
+                    transform: dropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform var(--transition)",
+                  }}
+                />
               </button>
 
               {dropdownOpen && (
                 <div
-                  style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", minWidth: "180px", backgroundColor: "var(--surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", overflow: "hidden", zIndex: 100 }}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "calc(100% + 8px)",
+                    minWidth: "180px",
+                    backgroundColor: "var(--surface)",
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: "var(--radius-lg)",
+                    boxShadow: "var(--shadow-lg)",
+                    overflow: "hidden",
+                    zIndex: 100,
+                  }}
                 >
                   {user && (
-                    <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                      <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text)" }}>@{user.username}</p>
-                      <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "2px" }}>{user.email}</p>
+                    <div
+                      style={{
+                        padding: "10px 14px",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text)" }}>
+                        @{user.username}
+                      </p>
+                      <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                        {user.email}
+                      </p>
                     </div>
                   )}
+
                   <div style={{ padding: "4px" }}>
-                    <button onClick={() => { setDropdownOpen(false); setProfileOpen(true); }} style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 12px", borderRadius: "var(--radius-md)", fontSize: "0.8125rem", color: "var(--text)", textAlign: "left", backgroundColor: "transparent", border: "none", cursor: "pointer" }}>
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        setProfileOpen(true);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "8px 12px",
+                        borderRadius: "var(--radius-md)",
+                        fontSize: "0.8125rem",
+                        color: "var(--text)",
+                        textAlign: "left",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
                       <UserIcon size={14} /> Profile Settings
                     </button>
-                    <button onClick={() => { setDropdownOpen(false); router.push("/settings/security"); }} style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 12px", borderRadius: "var(--radius-md)", fontSize: "0.8125rem", color: "var(--text)", textAlign: "left", backgroundColor: "transparent", border: "none", cursor: "pointer" }}>
+
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        router.push("/settings/security");
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "8px 12px",
+                        borderRadius: "var(--radius-md)",
+                        fontSize: "0.8125rem",
+                        color: "var(--text)",
+                        textAlign: "left",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
                       <Shield size={14} /> Security Settings
                     </button>
-                    <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 12px", borderRadius: "var(--radius-md)", fontSize: "0.8125rem", color: "#f87171", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}>
+
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "8px 12px",
+                        borderRadius: "var(--radius-md)",
+                        fontSize: "0.8125rem",
+                        color: "#f87171",
+                        textAlign: "left",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
                       <LogOut size={14} /> Logout
                     </button>
                   </div>
@@ -465,10 +612,34 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
               )}
             </div>
           </div>
-        )}
+        </header>
+      ) : (
+        // EXACT ORIGINAL MOBILE HEADER (WITH HAMBURGER REDIRECT TO DRAWER)
+        <header
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            backgroundColor: "var(--bg)",
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+          }}
+        >
+          {/* Left: PEN Logo */}
+          <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            <Link href="https://stevchrist.site">
+              <img
+                src={mounted && resolvedTheme === "light" ? "/Logo PEN Black.png" : "/Logo PEN White.png"}
+                alt="PEN Logo"
+                style={{ height: "28px", width: "auto", objectFit: "contain", display: "block" }}
+              />
+            </Link>
+          </div>
 
-        {/* Mobile: Hamburger Button */}
-        {isMobile && (
+          {/* Mobile: Hamburger Button */}
           <button
             onClick={() => setMobileMenuOpen((v) => !v)}
             aria-label="Open menu"
@@ -492,8 +663,8 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
               <span style={{ position: "absolute", top: "6px", right: "6px", width: "7px", height: "7px", borderRadius: "9999px", backgroundColor: "var(--cyan-highlight)", border: "1.5px solid var(--bg)" }} />
             )}
           </button>
-        )}
-      </header>
+        </header>
+      )}
     </>
   );
 }
