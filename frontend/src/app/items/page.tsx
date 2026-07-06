@@ -24,13 +24,16 @@ export default function ItemsPage() {
   const [items, setItems] = useState<BrowseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const check = () => setIsMobile(window.innerWidth < 1024);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
 
   const [query, setQuery] = useState("");
   const [filterRarity, setFilterRarity] = useState<string>("All");
@@ -248,11 +251,12 @@ export default function ItemsPage() {
             borderRadius: "12px",
             padding: "14px 16px",
             display: "grid",
-            gridTemplateColumns: isMobile ? "repeat(auto-fit, minmax(110px, 1fr))" : "3.2fr 1fr 1fr 1fr 1fr 0.8fr 90px",
+            gridTemplateColumns: (mounted && isMobile) ? "repeat(auto-fit, minmax(110px, 1fr))" : "3.2fr 1fr 1fr 1fr 1fr 0.8fr 90px",
             gap: "10px",
             alignItems: "end",
             boxShadow: "var(--shadow-sm)",
           }}
+
         >
 
           {/* Search Input */}
@@ -454,7 +458,7 @@ export default function ItemsPage() {
           <button
             onClick={handleClearFilters}
             style={{
-              width: isMobile ? "100%" : "90px",
+              width: (mounted && isMobile) ? "100%" : "90px",
               height: "36px",
               borderRadius: "8px",
               backgroundColor: "transparent",

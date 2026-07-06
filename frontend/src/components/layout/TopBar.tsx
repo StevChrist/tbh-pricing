@@ -116,7 +116,7 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
       <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} user={user} onUserUpdate={setUser} />
 
       {/* Mobile Drawer Overlay */}
-      {isMobile && (
+      {mounted && isMobile && (
         <>
           {/* Backdrop */}
           <div
@@ -317,7 +317,7 @@ export function TopBar({ unreadCount = 0 }: TopBarProps) {
       )}
 
       {/* Render Desktop Header or Mobile Header based on breakpoint */}
-      {!isMobile ? (
+      {!(mounted && isMobile) ? (
         // EXACT ORIGINAL DESKTOP HEADER LAYOUT
         <header
           style={{
