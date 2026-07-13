@@ -261,10 +261,6 @@ erDiagram
     }
 ```
 
-![Database ERD](Design/erd.png)
-
----
-
 ## 🔄 ETL & Data Flow
 The system implements a continuous data flow process:
 
