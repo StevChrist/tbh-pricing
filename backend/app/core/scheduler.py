@@ -319,8 +319,9 @@ async def run_startup_jobs() -> None:
     """
     Coordinated startup task:
     1. Clean up old activity logs.
-    2. Seed master_items if table is empty.
-    3. Immediately trigger a full price sync so prices are ready from boot.
+    2. Seed master_items if table is empty (only on first boot).
+    Price sync is handled by the cron job at :00 and :30 — no immediate sync
+    on startup to avoid hitting Steam rate limits after restarts.
     """
     await asyncio.sleep(2)  # brief pause for DB connections to settle
 
@@ -339,14 +340,14 @@ async def run_startup_jobs() -> None:
                 logger.info("Startup: master_items empty — triggering initial full seeding.")
                 await run_daily_market_sync(mode="full")
             else:
-                logger.info("Startup: master_items table populated with %d items.", count)
+                logger.info(
+                    "Startup: master_items table populated with %d items. "
+                    "Price sync will run at next scheduled :00 or :30 mark.",
+                    count,
+                )
         except Exception as exc:
             logger.error("Startup: error checking master_items: %s", exc)
 
-    # Run immediate full price sync so users see prices right after startup
-    logger.info("Startup: triggering immediate full price sync...")
-    await run_price_full_sync()
-    logger.info("Startup: initial price sync complete.")
 
 
 # ---------------------------------------------------------------------------

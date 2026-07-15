@@ -31,8 +31,8 @@ STEAM_MARKET_BASE = "https://steamcommunity.com/market"
 PRICE_OVERVIEW_URL = f"{STEAM_MARKET_BASE}/priceoverview/"
 SEARCH_RENDER_URL = f"{STEAM_MARKET_BASE}/search/render/"
 
-BACKOFF_DELAYS = [30, 60, 120]  # seconds for HTTP 429 retries
-REQUEST_DELAY = 3               # seconds between every request (hard rule)
+BACKOFF_DELAYS = [60, 120, 300]  # seconds for HTTP 429 retries (1min → 2min → 5min)
+REQUEST_DELAY = 5               # seconds between every request (safe limit for Steam)
 CURRENCY_IDR = 10               # Steam currency code for Indonesian Rupiah (NOT 9 which is NOK)
 CURRENCY_USD = 1                # Steam currency code for US Dollar
 
