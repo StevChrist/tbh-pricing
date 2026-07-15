@@ -85,6 +85,7 @@ async def run_price_full_sync() -> None:
             # --- Paginate through Steam Search/Render to collect all prices ---
             rate = await _get_usd_to_idr_rate()
             matched_prices: list[dict] = []
+            steam_fetch_success = False
 
             async with SteamMarketClient() as steam_client:
                 start = 0
@@ -115,10 +116,6 @@ async def run_price_full_sync() -> None:
                     results = data.get("results", [])
                     total_count = data.get("total_count", 0)
 
-                    if not results:
-                        logger.info("Scheduler: no results at start=%d (total=%d) — done.", start, total_count)
-                        break
-
                     # Match each Steam result against our tradable DB items
                     for raw in results:
                         hash_name = raw.get("hash_name", raw.get("name", ""))
@@ -143,24 +140,41 @@ async def run_price_full_sync() -> None:
                         start, len(matched_prices), len(hash_to_item),
                     )
 
+                    if not results:
+                        logger.info("Scheduler: no results at start=%d (total=%d) — done.", start, total_count)
+                        steam_fetch_success = True
+                        break
+
                     start += len(results)
 
                     # Stop when we've passed Steam's total or matched everything
-                    if start >= total_count or not remaining_hashes:
+                    if start >= total_count:
+                        steam_fetch_success = True
+                        break
+                    if not remaining_hashes:
+                        steam_fetch_success = True
                         break
 
-            # Items not found on Steam → mark as unavailable in cache
-            for missing_hash in remaining_hashes:
-                db_item = hash_to_item[missing_hash]
-                matched_prices.append({
-                    "master_item_id": db_item.id,
-                    "market_hash_name": missing_hash,
-                    "latest_price_usd": None,
-                    "latest_price_idr": None,
-                    "volume": None,
-                    "market_status": "unavailable",
-                    "market_url": None,
-                })
+            # Only mark the remaining unmatched items as unavailable if we completed a full sync scan
+            if steam_fetch_success:
+                # Items not found on Steam → mark as unavailable in cache
+                for missing_hash in remaining_hashes:
+                    db_item = hash_to_item[missing_hash]
+                    matched_prices.append({
+                        "master_item_id": db_item.id,
+                        "market_hash_name": missing_hash,
+                        "latest_price_usd": None,
+                        "latest_price_idr": None,
+                        "volume": None,
+                        "market_status": "unavailable",
+                        "market_url": None,
+                    })
+            else:
+                logger.warning(
+                    "Scheduler: Steam search/render did not complete successfully. "
+                    "Remaining %d items will keep their last known cached prices.",
+                    len(remaining_hashes)
+                )
 
             # --- Bulk upsert prices into MarketSummary ---
             updated_count = 0
