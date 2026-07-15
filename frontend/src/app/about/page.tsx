@@ -61,7 +61,22 @@ export default function AboutPage() {
                 boxShadow: "var(--shadow-sm)",
               }}
             >
-              v1.1.0 (Current)
+              V2.1.0 (Current)
+            </div>
+            <div
+              style={{
+                padding: "6px 14px",
+                borderRadius: "8px",
+                backgroundColor: "var(--surface)",
+                border: "1px solid var(--border)",
+                color: "var(--text-muted)",
+                fontSize: "0.8125rem",
+                fontWeight: 500,
+                letterSpacing: "0.02em",
+                boxShadow: "var(--shadow-sm)",
+              }}
+            >
+              V1.1.0 (Previous)
             </div>
           </div>
         </div>
@@ -87,6 +102,60 @@ export default function AboutPage() {
               TBH Price Tracker is built to track prices in real-time, compute cumulative quantity values, and trigger custom alerts. The platform seeds pricing metadata in the background and runs regular 30-minute updates so you never miss a market shift.
             </p>
           </div>
+        </div>
+
+        {/* What's New Card */}
+        <div
+          style={{
+            backgroundColor: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "12px",
+            padding: "24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            boxShadow: "var(--shadow-sm)",
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "1.5rem",
+              fontWeight: 600,
+              color: "var(--cyan-highlight)",
+              margin: 0,
+            }}
+          >
+            What's New in V2.1.0
+          </h2>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: "20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+              fontSize: "0.875rem",
+              color: "var(--text-muted)",
+              lineHeight: "1.6",
+            }}
+          >
+            <li>
+              <strong>Add Items Analytics:</strong> View visual interactive charts representing rarity concentrations, liquidity (tradable vs locked) metrics, and value share distributions for your top items.
+            </li>
+            <li>
+              <strong>Bilingual Recommendation Engine:</strong> Get real-time portfolio tips and investment warnings with a custom EN/ID language switcher directly inside the Insight & Recommendation card.
+            </li>
+            <li>
+              <strong>Tradable Status Indicator:</strong> A new column in the inventory tables showing "Yes" / "No" tradability, helping you immediately understand why prices for Celestial, Divine, or Cosmic gear are unavailable.
+            </li>
+            <li>
+              <strong>Clean Dashboard Layout:</strong> Dashboard view is optimized to display only the top 8 items sorted by highest value, and columns are condensed to fit perfectly on the screen without scrollbars.
+            </li>
+            <li>
+              <strong>Enhanced Guide:</strong> The "How To Use" page is completely rewritten and expanded with details on page functions, alarm settings, and developer Steam Market rules.
+            </li>
+          </ul>
         </div>
 
         {/* Game Details Card */}
