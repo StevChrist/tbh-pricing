@@ -261,7 +261,7 @@ class SteamMarketClient:
         currency_usd: int = CURRENCY_USD,
     ) -> dict | None:
         """
-        Fetch the latest price for a single item in both IDR and USD.
+        Fetch the latest price for a single item in USD, and convert to IDR.
 
         Returns a dict with keys:
           lowest_price_idr, median_price_idr,
@@ -281,56 +281,28 @@ class SteamMarketClient:
                 "fetch_status": "unavailable",
             }
 
-        # --- Fetch IDR ---
-        idr_result = await self._fetch_single_currency(
-            market_hash_name, currency_idr, label="IDR"
-        )
-
-        # --- Fetch USD (another sleep happens inside _fetch_single_currency) ---
+        # --- Fetch USD only ---
         usd_result = await self._fetch_single_currency(
             market_hash_name, currency_usd, label="USD"
         )
 
-        if idr_result is None and usd_result is None:
+        if usd_result is None:
             return None
 
-        # Merge results — use IDR fetch_status as canonical
-        fetch_status = (idr_result or {}).get("fetch_status", "error")
-        if usd_result and usd_result.get("fetch_status") == "ok":
-            fetch_status = "ok"
+        fetch_status = usd_result.get("fetch_status", "error")
+        volume = usd_result.get("volume")
+        lowest_price_usd = usd_result.get("lowest_price")
+        median_price_usd = usd_result.get("median_price")
 
-        volume = None
-        if idr_result and idr_result.get("volume") is not None:
-            volume = idr_result["volume"]
-        elif usd_result and usd_result.get("volume") is not None:
-            volume = usd_result["volume"]
+        lowest_price_idr = None
+        median_price_idr = None
 
-        lowest_price_idr = (idr_result or {}).get("lowest_price")
-        median_price_idr = (idr_result or {}).get("median_price")
-        lowest_price_usd = (usd_result or {}).get("lowest_price")
-        median_price_usd = (usd_result or {}).get("median_price")
-
-        # Fallback logic if Steam returned another currency for IDR (e.g. Krona/kr due to server location)
-        idr_ok = idr_result and idr_result.get("fetch_status") == "ok"
-        idr_actual = idr_result and idr_result.get("is_actual_idr", True)
-        usd_ok = usd_result and usd_result.get("fetch_status") == "ok"
-
-        if (not idr_ok or not idr_actual) and usd_ok:
+        if fetch_status == "ok":
             rate = await _get_usd_to_idr_rate()
             if lowest_price_usd is not None:
                 lowest_price_idr = round(lowest_price_usd * rate, 2)
             if median_price_usd is not None:
                 median_price_idr = round(median_price_usd * rate, 2)
-            logger.info(
-                "Steam did not return IDR for %s (idr_ok=%s, idr_actual=%s). "
-                "Converted USD lowest (%.2f) and median (%.2f) to IDR using rate %.2f.",
-                market_hash_name,
-                idr_ok,
-                idr_actual,
-                lowest_price_usd or 0.0,
-                median_price_usd or 0.0,
-                rate,
-            )
 
         return {
             "lowest_price_idr": lowest_price_idr,
