@@ -1,8 +1,13 @@
-# Environment
+# ===== Environment & Secrets (NEVER commit these) =====
 .env
 *.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env.local
+frontend/.env*.local
 
-# Python
+# ===== Python =====
 __pycache__/
 *.py[cod]
 *.pyo
@@ -13,27 +18,40 @@ __pycache__/
 venv/
 env/
 
-# Database
+# ===== Database Files =====
 *.db
+*.sqlite
 *.sqlite3
 data/tbh.db
+backend/data/
 
-# Next.js
+# ===== Next.js / Node =====
 frontend/.next/
 frontend/out/
 frontend/node_modules/
-frontend/.env.local
+node_modules/
 
-# Build artifacts
+# ===== Build Artifacts =====
 dist/
 build/
 *.egg-info/
+*.whl
 
-# OS
+# ===== Logs =====
+*.log
+logs/
+
+# ===== OS =====
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# IDE
+# ===== IDE & Editor =====
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+
+# ===== Docker =====
+# (docker-compose.yml is committed intentionally — no secrets inside)
