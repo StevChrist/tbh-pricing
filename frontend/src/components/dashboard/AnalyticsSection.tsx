@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -109,59 +109,107 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
     };
   }, [items]);
 
-  // 2. Generate Tips based on Data Science metrics
+  const [lang, setLang] = useState<"id" | "en">("id");
+
+  // 2. Generate Tips based on Data Science metrics in both languages
   const tips = useMemo(() => {
     if (!stats || items.length === 0) {
-      return [
-        "Tambahkan beberapa item ke inventaris Anda di halaman Browse untuk mengaktifkan analisis data sains secara real-time."
-      ];
+      return {
+        id: [
+          "Tambahkan beberapa item ke inventaris Anda di halaman Browse untuk mengaktifkan analisis data sains secara real-time."
+        ],
+        en: [
+          "Add some items to your inventory on the Browse page to activate real-time data science analytics."
+        ]
+      };
     }
 
-    const list: string[] = [];
-    const untradableRatio = stats.untradableCount / (stats.tradableCount + stats.untradableCount);
+    const listId: string[] = [];
+    const listEn: string[] = [];
+    
+    const totalItemsCount = stats.tradableCount + stats.untradableCount;
+    const untradableRatio = totalItemsCount > 0 ? stats.untradableCount / totalItemsCount : 0;
     const untradableValueRatio = stats.totalValue > 0 ? stats.untradableValue / stats.totalValue : 0;
 
-    // Check Concentration
+    // A. Concentration Risk
     if (stats.topItemsData.length > 0 && stats.totalValue > 0) {
       const top1Value = stats.topItemsData[0].value;
       const top1Ratio = top1Value / stats.totalValue;
       if (top1Ratio > 0.5) {
-        list.push(
+        listId.push(
           `Konsentrasi Aset Tinggi: Item "${stats.topItemsData[0].name}" menguasai ${(top1Ratio * 100).toFixed(1)}% dari total nilai portofolio Anda. Kami menyarankan diversifikasi untuk meminimalkan risiko volatilitas harga pasar Steam.`
+        );
+        listEn.push(
+          `High Asset Concentration: Item "${stats.topItemsData[0].name}" represents ${(top1Ratio * 100).toFixed(1)}% of your total portfolio value. We recommend diversifying to minimize Steam Market price volatility risk.`
         );
       }
     }
 
-    // Check Untradable Risk
+    // B. Untradable / Liquidity Risk
     if (untradableRatio > 0.3) {
-      list.push(
+      listId.push(
         `Risiko Likuiditas (${(untradableRatio * 100).toFixed(0)}% Items Locked): Sebagian besar inventaris Anda terdiri dari item tingkat tinggi (Cosmic/Divine/Celestial gear) yang dilarang diperdagangkan oleh developer. Nilai item-item ini saat ini terkunci di dalam game.`
       );
+      listEn.push(
+        `Liquidity Risk (${(untradableRatio * 100).toFixed(0)}% Items Locked): A large portion of your inventory consists of high-tier items (Cosmic/Divine/Celestial gear) restricted from trade by developers. The value of these items is currently locked in-game.`
+      );
     } else if (untradableValueRatio > 0.4) {
-      list.push(
+      listId.push(
         `Aset Terkunci Tinggi: Sekitar ${(untradableValueRatio * 100).toFixed(0)}% kekayaan inventaris Anda terikat pada item non-tradable. Pertimbangkan untuk memfokuskan grinding pada item Legendary atau material tradable untuk likuiditas yang lebih baik.`
+      );
+      listEn.push(
+        `High Locked Wealth: About ${(untradableValueRatio * 100).toFixed(0)}% of your inventory wealth is tied to non-tradable items. Consider focusing your grinding on Legendary items or tradable materials for better liquidity.`
       );
     }
 
-    // Check Materials Advantage
+    // C. Zero Tradable Items warning
+    if (stats.tradableCount === 0 && stats.untradableCount > 0) {
+      listId.push(
+        "Likuiditas Pasar Nol: Tidak ada item di inventaris Anda saat ini yang dapat diperdagangkan di Steam Market. Aliran kas potensial Anda di Steam saat ini adalah Rp 0. Carilah gear tingkat Legendary (Variant A) atau material kerajinan."
+      );
+      listEn.push(
+        "Zero Market Liquidity: None of the items currently in your inventory can be traded on the Steam Market. Your potential cash flow on Steam is currently Rp 0. Look for Legendary grade gear (Variant A) or crafting materials."
+      );
+    }
+
+    // D. High Qty, Low Value Warning
+    if (totalItemsCount > 5 && stats.totalValue > 0 && stats.totalValue < 50000) {
+      listId.push(
+        `Kuantitas Tinggi, Nilai Rendah: Anda memiliki ${totalItemsCount} item tetapi nilai totalnya rendah (${formatIDR(stats.totalValue)}). Cobalah konsolidasi dengan menjual material bernilai kecil untuk membeli item Legendary yang permintaannya lebih stabil.`
+      );
+      listEn.push(
+        `High Quantity, Low Value: You own ${totalItemsCount} items but the total portfolio value is low (${formatIDR(stats.totalValue)}). Try consolidating by selling low-value materials to purchase Legendary items with more stable demand.`
+      );
+    }
+
+    // E. Materials Advantage
     const materialItems = items.filter(i => i.master_item.gear_type === null);
     const materialRatio = items.length > 0 ? materialItems.length / items.length : 0;
     if (materialRatio > 0.25) {
-      list.push(
+      listId.push(
         "Keunggulan Bahan Baku: Anda memiliki proporsi material yang cukup tinggi (>25%). Material (Soulstones/Inscriptions) sangat likuid dan bebas dari larangan perdagangan gear kelas atas, menjadikannya 'safe haven' saat pasar bergejolak."
       );
+      listEn.push(
+        "Materials Advantage: You have a high proportion of crafting materials (>25%). Materials (Soulstones/Inscriptions) are highly liquid and exempt from high-tier gear trade bans, making them excellent safe havens during market corrections."
+      );
     } else {
-      list.push(
+      listId.push(
         "Tips Diversifikasi: Tingkatkan proporsi material kerajinan (crafting materials) atau dekorasi dalam inventaris Anda. Material terbebas dari aturan batas kelangkahan (rarity gates) minimum Legendary dan sangat mudah dicairkan di Steam Market."
+      );
+      listEn.push(
+        "Diversification Tip: Increase the proportion of crafting materials or decorations in your inventory. Materials are exempt from the minimum Legendary rarity gate rules and are highly liquid on the Steam Market."
       );
     }
 
-    // General Market Trend
-    list.push(
+    // F. General Market Trend (optimized sales)
+    listId.push(
       "Optimasi Penjualan: Volume perdagangan di Steam Market untuk game TBH memuncak di akhir pekan. Pasang order jual (sell orders) Anda di hari Sabtu/Minggu untuk pencairan aset yang lebih cepat dengan harga premium."
     );
+    listEn.push(
+      "Sales Optimization: Steam Market trading volume for TBH items peaks during the weekend. Place your sell orders on Saturday/Sunday to liquidate assets faster at premium prices."
+    );
 
-    return list;
+    return { id: listId, en: listEn };
   }, [stats, items]);
 
   if (loading) {
@@ -224,7 +272,7 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
             textAlign: "center",
           }}
         >
-          Data Science Portfolio Analytics
+          Items Analytics
         </h2>
       </div>
 
@@ -421,27 +469,73 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
           boxShadow: "var(--shadow-sm)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "8px",
+                backgroundColor: "rgba(0, 229, 255, 0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ShieldAlert size={20} style={{ color: "var(--cyan-highlight)" }} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)", margin: 0 }}>
+                {lang === "id" ? "Rekomendasi & Wawasan Data Sains" : "Data Science Insights & Recommendations"}
+              </h3>
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: 0 }}>
+                {lang === "id" ? "Algoritma analisis portofolio real-time mendeteksi rekomendasi berikut:" : "Real-time portfolio analysis algorithm detects the following recommendations:"}
+              </p>
+            </div>
+          </div>
+
+          {/* Language Toggle */}
           <div
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              backgroundColor: "rgba(0, 229, 255, 0.1)",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              borderRadius: "8px",
+              backgroundColor: "rgba(0, 0, 0, 0.3)",
+              border: "1px solid var(--border)",
+              padding: "2px",
             }}
           >
-            <ShieldAlert size={20} style={{ color: "var(--cyan-highlight)" }} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)", margin: 0 }}>
-              Data Science Insights & Recommendations
-            </h3>
-            <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: 0 }}>
-              Algoritma analisis portofolio real-time mendeteksi rekomendasi berikut:
-            </p>
+            <button
+              onClick={() => setLang("en")}
+              style={{
+                padding: "4px 10px",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: lang === "en" ? "var(--cyan-highlight)" : "transparent",
+                color: lang === "en" ? "#000000" : "var(--text-muted)",
+                cursor: "pointer",
+                transition: "all var(--transition)",
+              }}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang("id")}
+              style={{
+                padding: "4px 10px",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: lang === "id" ? "var(--cyan-highlight)" : "transparent",
+                color: lang === "id" ? "#000000" : "var(--text-muted)",
+                cursor: "pointer",
+                transition: "all var(--transition)",
+              }}
+            >
+              ID
+            </button>
           </div>
         </div>
 
@@ -457,7 +551,7 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
             lineHeight: 1.5,
           }}
         >
-          {tips.map((tip, idx) => (
+          {tips[lang].map((tip, idx) => (
             <li key={idx} style={{ color: "var(--text-muted)" }}>
               {tip}
             </li>
