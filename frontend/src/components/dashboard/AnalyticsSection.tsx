@@ -327,8 +327,9 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
                     backgroundColor: "rgba(10, 10, 10, 0.95)",
                     border: "1px solid var(--border)",
                     borderRadius: "8px",
-                    color: "var(--text)"
                   }}
+                  itemStyle={{ color: "#ffffff" }}
+                  labelStyle={{ color: "#ffffff", fontWeight: 600 }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -393,8 +394,9 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
                     backgroundColor: "rgba(10, 10, 10, 0.95)",
                     border: "1px solid var(--border)",
                     borderRadius: "8px",
-                    color: "var(--text)"
                   }}
+                  itemStyle={{ color: "#ffffff" }}
+                  labelStyle={{ color: "#ffffff", fontWeight: 600 }}
                 />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {stats.tradabilityChartData.map((entry, index) => (
@@ -405,9 +407,8 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
             </ResponsiveContainer>
           </div>
 
-          <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)", textAlign: "center" }}>
-            Total Liquid: <strong style={{ color: "#10b981" }}>{formatIDR(stats.tradableValue)}</strong> (Qty: {stats.tradableCount}) |
-            Locked: <strong style={{ color: "#ef4444" }}>{formatIDR(stats.untradableValue)}</strong> (Qty: {stats.untradableCount})
+          <div style={{ fontSize: "0.875rem", color: "var(--text)", textAlign: "center" }}>
+            Total Liquid: <strong style={{ color: "#10b981" }}>{formatIDR(stats.tradableValue)}</strong> (Qty: {stats.tradableCount}) | Locked: <strong style={{ color: "#ef4444" }}>{formatIDR(stats.untradableValue)}</strong> (Qty: {stats.untradableCount})
           </div>
         </div>
 
@@ -442,8 +443,9 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
                     backgroundColor: "rgba(10, 10, 10, 0.95)",
                     border: "1px solid var(--border)",
                     borderRadius: "8px",
-                    color: "var(--text)"
                   }}
+                  itemStyle={{ color: "#ffffff" }}
+                  labelStyle={{ color: "#ffffff", fontWeight: 600 }}
                 />
                 <Area type="monotone" dataKey="value" stroke="var(--cyan-highlight)" fill="rgba(0, 229, 255, 0.08)" />
               </AreaChart>
@@ -486,7 +488,7 @@ export function AnalyticsSection({ items, loading }: AnalyticsSectionProps) {
             </div>
             <div>
               <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)", margin: 0 }}>
-                {lang === "id" ? "Rekomendasi & Wawasan Data Sains" : "Data Science Insights & Recommendations"}
+                Insight & Recommendation
               </h3>
               <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", margin: 0 }}>
                 {lang === "id" ? "Algoritma analisis portofolio real-time mendeteksi rekomendasi berikut:" : "Real-time portfolio analysis algorithm detects the following recommendations:"}
