@@ -6,6 +6,24 @@ import { Package, Award, Heart } from "lucide-react";
 
 export default function AboutPage() {
   const [unreadCount, setUnreadCount] = useState(0);
+  void setUnreadCount;
+
+  // Track active version view
+  const [activeVersion, setActiveVersion] = useState<"v2" | "v1">("v2");
+
+  const badgeStyle = (isActive: boolean) => ({
+    padding: "6px 14px",
+    borderRadius: "8px",
+    backgroundColor: isActive ? "var(--primary)" : "var(--surface)",
+    border: "1px solid var(--border)",
+    color: isActive ? "var(--text)" : "var(--text-muted)",
+    fontSize: "0.8125rem",
+    fontWeight: isActive ? 600 : 500,
+    letterSpacing: "0.02em",
+    boxShadow: "var(--shadow-sm)",
+    cursor: "pointer",
+    transition: "all var(--transition)",
+  });
 
   return (
     <div
@@ -48,36 +66,18 @@ export default function AboutPage() {
             About
           </h1>
           <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
-            <div
-              style={{
-                padding: "6px 14px",
-                borderRadius: "8px",
-                backgroundColor: "var(--primary)",
-                border: "1px solid var(--border)",
-                color: "var(--text)",
-                fontSize: "0.8125rem",
-                fontWeight: 600,
-                letterSpacing: "0.02em",
-                boxShadow: "var(--shadow-sm)",
-              }}
+            <button
+              onClick={() => setActiveVersion("v2")}
+              style={badgeStyle(activeVersion === "v2")}
             >
               V2.1.0 (Current)
-            </div>
-            <div
-              style={{
-                padding: "6px 14px",
-                borderRadius: "8px",
-                backgroundColor: "var(--surface)",
-                border: "1px solid var(--border)",
-                color: "var(--text-muted)",
-                fontSize: "0.8125rem",
-                fontWeight: 500,
-                letterSpacing: "0.02em",
-                boxShadow: "var(--shadow-sm)",
-              }}
+            </button>
+            <button
+              onClick={() => setActiveVersion("v1")}
+              style={badgeStyle(activeVersion === "v1")}
             >
               V1.1.0 (Previous)
-            </div>
+            </button>
           </div>
         </div>
 
@@ -104,7 +104,7 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* What's New Card */}
+        {/* What's New / Version Details Card */}
         <div
           style={{
             backgroundColor: "var(--surface)",
@@ -115,8 +115,23 @@ export default function AboutPage() {
             flexDirection: "column",
             gap: "16px",
             boxShadow: "var(--shadow-sm)",
+            position: "relative",
           }}
         >
+          {/* Release Date in top right corner */}
+          <div
+            style={{
+              position: "absolute",
+              top: "24px",
+              right: "24px",
+              fontSize: "0.75rem",
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+            }}
+          >
+            {activeVersion === "v2" ? "July 16, 2026" : "June 15, 2026"}
+          </div>
+
           <h2
             style={{
               fontFamily: "var(--font-display)",
@@ -126,36 +141,68 @@ export default function AboutPage() {
               margin: 0,
             }}
           >
-            What's New in V2.1.0
+            {activeVersion === "v2" ? "What's New in V2.1.0" : "Updates in V1.1.0"}
           </h2>
-          <ul
-            style={{
-              margin: 0,
-              paddingLeft: "20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-              fontSize: "0.875rem",
-              color: "var(--text-muted)",
-              lineHeight: "1.6",
-            }}
-          >
-            <li>
-              <strong>Add Items Analytics:</strong> View visual interactive charts representing rarity concentrations, liquidity (tradable vs locked) metrics, and value share distributions for your top items.
-            </li>
-            <li>
-              <strong>Bilingual Recommendation Engine:</strong> Get real-time portfolio tips and investment warnings with a custom EN/ID language switcher directly inside the Insight & Recommendation card.
-            </li>
-            <li>
-              <strong>Tradable Status Indicator:</strong> A new column in the inventory tables showing "Yes" / "No" tradability, helping you immediately understand why prices for Celestial, Divine, or Cosmic gear are unavailable.
-            </li>
-            <li>
-              <strong>Clean Dashboard Layout:</strong> Dashboard view is optimized to display only the top 8 items sorted by highest value, and columns are condensed to fit perfectly on the screen without scrollbars.
-            </li>
-            <li>
-              <strong>Enhanced Guide:</strong> The "How To Use" page is completely rewritten and expanded with details on page functions, alarm settings, and developer Steam Market rules.
-            </li>
-          </ul>
+
+          {activeVersion === "v2" ? (
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                fontSize: "0.875rem",
+                color: "var(--text-muted)",
+                lineHeight: "1.6",
+              }}
+            >
+              <li>
+                <strong>Add Items Analytics:</strong> View visual interactive charts representing rarity concentrations, liquidity (tradable vs locked) metrics, and value share distributions for your top items.
+              </li>
+              <li>
+                <strong>Bilingual Recommendation Engine:</strong> Get real-time portfolio tips and investment warnings with a custom EN/ID language switcher directly inside the Insight & Recommendation card.
+              </li>
+              <li>
+                <strong>Tradable Status Indicator:</strong> A new column in the inventory tables showing "Yes" / "No" tradability, helping you immediately understand why prices for Celestial, Divine, or Cosmic gear are unavailable.
+              </li>
+              <li>
+                <strong>Clean Dashboard Layout:</strong> Dashboard view is optimized to display only the top 8 items sorted by highest value, and columns are condensed to fit perfectly on the screen without scrollbars.
+              </li>
+              <li>
+                <strong>Enhanced Guide:</strong> The "How To Use" page is completely rewritten and expanded with details on page functions, alarm settings, and developer Steam Market rules.
+              </li>
+            </ul>
+          ) : (
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                fontSize: "0.875rem",
+                color: "var(--text-muted)",
+                lineHeight: "1.6",
+              }}
+            >
+              <li>
+                <strong>Automatic Price Syncs:</strong> Regularly updates prices of inventory items in the background every 30 minutes.
+              </li>
+              <li>
+                <strong>Custom Price Alerts:</strong> Click the bell icon to get notified when prices drop below or exceed your specified threshold.
+              </li>
+              <li>
+                <strong>Unified Mailbox:</strong> Central inbox to check all your price alerts and notification histories in one place.
+              </li>
+              <li>
+                <strong>CSV Portfolio Export:</strong> Export your list of inventoried items into standard spreadsheet sheets.
+              </li>
+              <li>
+                <strong>Secure OTP Verification:</strong> Login and account management enabled with multi-factor authentication protocols.
+              </li>
+            </ul>
+          )}
         </div>
 
         {/* Game Details Card */}

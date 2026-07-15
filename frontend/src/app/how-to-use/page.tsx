@@ -7,17 +7,57 @@ import {
   Clock,
   Bell,
   Inbox,
-  FileSpreadsheet,
   Layers,
   Search,
-  Sparkles,
   ShieldAlert,
-  HelpCircle
+  HelpCircle,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 export default function HowToUsePage() {
   const [unreadCount, setUnreadCount] = useState(0);
   void setUnreadCount;
+
+  // Track expanded state for each of the 4 sections
+  const [openSections, setOpenSections] = useState<Record<number, boolean>>({
+    1: true,
+    2: false,
+    3: false,
+    4: false,
+  });
+
+  const toggleSection = (id: number) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const headerStyle = (isOpen: boolean) => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "20px 24px",
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: isOpen ? "12px 12px 0 0" : "12px",
+    cursor: "pointer",
+    transition: "all var(--transition)",
+    boxShadow: "var(--shadow-sm)",
+  });
+
+  const contentStyle = {
+    padding: "24px",
+    backgroundColor: "rgba(255, 255, 255, 0.01)",
+    borderRight: "1px solid var(--border)",
+    borderBottom: "1px solid var(--border)",
+    borderLeft: "1px solid var(--border)",
+    borderRadius: "0 0 12px 12px",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "16px",
+  };
 
   return (
     <div
@@ -36,12 +76,12 @@ export default function HowToUsePage() {
         style={{
           flex: 1,
           width: "100%",
-          maxWidth: "900px",
+          maxWidth: "800px",
           margin: "0 auto",
           padding: "32px 24px",
           display: "flex",
           flexDirection: "column",
-          gap: "36px",
+          gap: "28px",
         }}
       >
         {/* Page Title */}
@@ -61,164 +101,101 @@ export default function HowToUsePage() {
           >
             Panduan Penggunaan
           </h1>
-          <p style={{ fontSize: "1rem", color: "var(--text-muted)", textAlign: "center", maxWidth: "600px" }}>
-            Pelajari cara kerja sistem, penjelasan fitur di setiap halaman, dan cara mengoptimalkan pelacakan harga inventaris Task Bar Hero Anda.
+          <p style={{ fontSize: "0.9375rem", color: "var(--text-muted)", textAlign: "center", maxWidth: "600px", margin: 0 }}>
+            Klik pada judul topik di bawah ini untuk membaca panduan cara menggunakan fitur-fitur utama website.
           </p>
         </div>
 
-        {/* Section 1: Panduan Per Halaman */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
-            1. Penjelasan Halaman Utama
-          </h2>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
-            {/* Dashboard */}
-            <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+        {/* Collapsible Accordion Grid */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "12px" }}>
+          
+          {/* Section 1 */}
+          <div>
+            <div onClick={() => toggleSection(1)} style={headerStyle(openSections[1])}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <Layers size={20} style={{ color: "var(--cyan-highlight)" }} />
-                <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>Halaman Dashboard (Panel Utama)</h3>
+                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>1. Penjelasan Halaman Utama</h2>
               </div>
-              <ul style={{ paddingLeft: "20px", fontSize: "0.9rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "8px", lineHeight: 1.6 }}>
-                <li><strong>Metrik Cepat:</strong> Pantau valuasi total inventaris Anda dalam Rupiah (IDR) & USD, jumlah item unik, dan aset dengan harga jual termahal secara real-time.</li>
-                <li><strong>My Inventory (Top 8):</strong> Menampilkan daftar 8 item termahal milik Anda. Tabel dirancang bebas scrollbar agar Anda mendapat ringkasan yang ringkas dan rapi.</li>
-                <li><strong>Items Analytics:</strong> Visualisasi portofolio Anda menggunakan 3 diagram interaktif:
-                  <ul style={{ paddingLeft: "20px", marginTop: "4px" }}>
-                    <li><em>Rarity Value Concentration:</em> Menampilkan tingkat kelangkaan (Common s.d Cosmic) mana yang mendominasi nilai portofolio Anda.</li>
-                    <li><em>Liquidity Analysis:</em> Membandingkan nilai aset Anda yang <strong>Liquid (bisa dijual/Tradable)</strong> vs <strong>Locked (terkunci/Untradable)</strong> di Steam Market.</li>
-                    <li><em>Top 5 Items Value Share:</em> Grafik kontribusi nilai dari 5 barang terbaik Anda.</li>
+              {openSections[1] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </div>
+            {openSections[1] && (
+              <div style={contentStyle}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                    Aplikasi ini dibagi menjadi tiga halaman utama yang saling terintegrasi:
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.9rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "8px", lineHeight: 1.6 }}>
+                    <li><strong>Dashboard (Panel Ringkasan):</strong> Menampilkan valuasi total inventaris Anda, 8 item termahal milik Anda secara ringkas tanpa scrollbar, grafik analitik aset (kelangkaan & likuiditas), serta kotak rekomendasi bilingual.</li>
+                    <li><strong>Inventory (Kelola Inventaris):</strong> Tempat memantau semua barang yang Anda simpan. Di sini Anda bisa mengubah jumlah barang, menambahkan catatan khusus, memasang alarm harga, serta mengekspor data ke file CSV.</li>
+                    <li><strong>Browse (Cari Item):</strong> Menelusuri seluruh database katalog item game Task Bar Hero untuk ditambahkan ke inventaris Anda secara cepat.</li>
                   </ul>
-                </li>
-                <li><strong>Insight & Recommendation:</strong> Kotak rekomendasi pintar berbasis data sains untuk memberikan tips diversifikasi, pengelolaan risiko likuiditas, dan optimasi waktu penjualan (bisa di-toggle ID/EN).</li>
-              </ul>
-            </div>
-
-            {/* Inventory */}
-            <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-                <Package size={20} style={{ color: "var(--cyan-highlight)" }} />
-                <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>Halaman Inventory (Kelola Aset)</h3>
+                </div>
               </div>
-              <ul style={{ paddingLeft: "20px", fontSize: "0.9rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "8px", lineHeight: 1.6 }}>
-                <li>Menampilkan daftar lengkap seluruh item di portofolio Anda secara detail, lengkap dengan harga Steam terkini (USD & IDR) serta estimasi saldo yang Anda terima setelah dipotong pajak Steam (15%).</li>
-                <li><strong>Sync Prices:</strong> Klik tombol ini untuk memperbarui harga seluruh item Anda secara langsung dari Steam Market secara massal.</li>
-                <li><strong>Export CSV:</strong> Unduh seluruh data inventaris Anda ke dalam bentuk file spreadsheet/Excel dalam satu klik.</li>
-                <li><strong>Aksi Cepat:</strong> Pada setiap baris item, Anda dapat memperbarui jumlah barang (QTY), menambahkan catatan khusus (Notes), memasang alarm harga, memicu refresh satu item, atau menghapusnya.</li>
-              </ul>
-            </div>
+            )}
+          </div>
 
-            {/* Browse */}
-            <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-                <Search size={20} style={{ color: "var(--cyan-highlight)" }} />
-                <h3 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>Halaman Browse (Cari & Tambah Item)</h3>
+          {/* Section 2 */}
+          <div>
+            <div onClick={() => toggleSection(2)} style={headerStyle(openSections[2])}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <Bell size={20} style={{ color: "var(--accent-orange)" }} />
+                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>2. Alarm Harga (Price Alerts & Mailbox)</h2>
               </div>
-              <ul style={{ paddingLeft: "20px", fontSize: "0.9rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "8px", lineHeight: 1.6 }}>
-                <li>Menampilkan katalog lengkap berisi **5.934 item** dari game Task Bar Hero yang disinkronkan langsung dari Wiki resmi.</li>
-                <li>Gunakan kolom pencarian nama item, filter kategori tipe (Gear / Material), serta filter tingkat kelangkaan (Rarity) untuk menemukan barang dengan cepat.</li>
-                <li>Gunakan checkbox untuk memilih banyak item sekaligus, lalu klik **"Add Selected to Inventory"** untuk menambahkannya ke portofolio Anda secara instan (bulk-add).</li>
-              </ul>
+              {openSections[2] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </div>
-          </div>
-        </div>
-
-        {/* Section 2: Fitur Alarm Harga */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
-            2. Sistem Alarm & Kotak Masuk (Price Alerts & Mailbox)
-          </h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: "20px",
-              width: "100%",
-            }}
-          >
-            {/* Set Alert */}
-            <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                <Bell size={18} style={{ color: "var(--accent-orange)" }} />
-                <h4 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>Cara Memasang Alarm</h4>
+            {openSections[2] && (
+              <div style={contentStyle}>
+                <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                  Anda dapat memantau pergerakan harga item tertentu secara otomatis:
+                </p>
+                <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.9rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "8px", lineHeight: 1.6 }}>
+                  <li><strong>Pasang Alarm:</strong> Klik ikon lonceng pada baris item pilihan Anda di halaman Inventory atau Browse, tentukan target batas harga (Rupiah/USD), lalu simpan.</li>
+                  <li><strong>Notifikasi Masuk:</strong> Jika harga pasar Steam menyentuh target Anda, sistem akan secara otomatis mengirimkan notifikasi ke halaman <strong>Mailbox</strong> Anda.</li>
+                </ul>
               </div>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
-                Klik ikon lonceng pada baris item pilihan Anda di halaman Inventory atau Browse. Pilih kondisi apakah harga turun di bawah (<em>Price goes below</em>) atau naik di atas (<em>Price goes above</em>) nilai target Anda. Masukkan nilai target dalam USD atau IDR, lalu simpan.
-              </p>
-            </div>
+            )}
+          </div>
 
-            {/* Mailbox */}
-            <div style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                <Inbox size={18} style={{ color: "var(--cyan-highlight)" }} />
-                <h4 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>Menerima Notifikasi</h4>
+          {/* Section 3 */}
+          <div>
+            <div onClick={() => toggleSection(3)} style={headerStyle(openSections[3])}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <ShieldAlert size={20} style={{ color: "var(--accent-orange)" }} />
+                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>3. Status Perdagangan (Tradable vs Non-Tradable)</h2>
               </div>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
-                Setiap kali sistem melakukan sinkronisasi harga otomatis (setiap 30 menit), sistem akan mencocokkan harga baru dengan alarm Anda. Jika kondisi terpenuhi, notifikasi akan dikirimkan ke <strong>Mailbox</strong> Anda dan indikator merah di lonceng menu kanan atas akan menyala.
-              </p>
+              {openSections[3] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </div>
+            {openSections[3] && (
+              <div style={contentStyle}>
+                <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                  Tidak semua item dalam game dapat diperdagangkan di Steam Market:
+                </p>
+                <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.9rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "8px", lineHeight: 1.6 }}>
+                  <li><strong>Item Tradable (Bisa Dijual):</strong> Hanya perlengkapan (Gear) tingkat kelangkaan *Legendary & Immortal (Variant A)* serta kategori *Bahan Baku (Materials)* yang aktif diperdagangkan di Steam.</li>
+                  <li><strong>Item Non-Tradable (Terkunci):</strong> Perlengkapan kelas tertinggi seperti *Celestial, Divine, dan Cosmic* dibatasi oleh developer game sehingga harganya ditampilkan sebagai "Unavailable".</li>
+                </ul>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Section 3: Penting - Kebijakan Tradable / Market */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
-            3. Panduan Penting Mengenai Status Perdagangan (Tradable)
-          </h2>
-
-          <div
-            style={{
-              backgroundColor: "rgba(255, 179, 0, 0.04)",
-              border: "1px solid rgba(255, 179, 0, 0.15)",
-              borderRadius: "12px",
-              padding: "24px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <ShieldAlert size={22} style={{ color: "var(--accent-orange)" }} />
-              <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text)", margin: 0 }}>
-                Kenapa sebagian item bertstatus Tradable: "No" dan harganya "Unavailable"?
-              </h3>
+          {/* Section 4 */}
+          <div>
+            <div onClick={() => toggleSection(4)} style={headerStyle(openSections[4])}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <Clock size={20} style={{ color: "var(--cyan-highlight)" }} />
+                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>4. Pembaruan Harga Otomatis</h2>
+              </div>
+              {openSections[4] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </div>
-            <div style={{ fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.6, display: "flex", flexDirection: "column", gap: "10px" }}>
-              <p style={{ margin: 0 }}>
-                Sebagai pengguna dan analis data, Anda perlu memahami regulasi Steam Market yang ditetapkan oleh developer game *TBH: Task Bar Hero*:
-              </p>
-              <ul style={{ margin: 0, paddingLeft: "20px" }}>
-                <li>
-                  <strong>Batas Kelangkaan (Rarity Gates):</strong> Hanya perlengkapan (Gear) dengan kelangkaan minimum <strong>Legendary & Immortal (Variant A)</strong> yang diizinkan untuk diperdagangkan di Steam Market.
-                </li>
-                <li>
-                  <strong>Pemblokiran Kelas Atas:</strong> Developer game menutup perdagangan untuk seluruh perlengkapan kelas tertinggi seperti **Celestial, Divine, dan Cosmic** guna menjaga kestabilan ekonomi game.
-                </li>
-                <li>
-                  <strong>Bahan Baku Terkecuali (Materials Exempt):</strong> Barang kategori material kerajinan (seperti Soulstones, Ores, Pearls, Inscriptions) dibebaskan dari aturan batas kelangkaan dan **tetap dapat diperdagangkan di tingkat kelangkaan apa pun**.
-                </li>
-              </ul>
-              <p style={{ margin: 0, fontWeight: 500, color: "var(--text)" }}>
-                Sistem kami secara akurat mendeteksi aturan ini dan melabeli item sebagai Tradable: "No" agar Anda tahu bahwa harga item tersebut tidak tersedia karena dibatasi secara resmi oleh developer game, bukan karena kesalahan sistem.
-              </p>
-            </div>
+            {openSections[4] && (
+              <div style={contentStyle}>
+                <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                  Harga item pada sistem ini diperbarui secara berkala oleh server setiap **30 menit sekali secara otomatis** untuk menjaga keakuratan data pelacakan inventaris Anda.
+                </p>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Section 4: Sinkronisasi Otomatis */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--text)", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
-            4. Sinkronisasi Data Otomatis di Background
-          </h2>
-          <div style={{ display: "flex", gap: "16px", backgroundColor: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "20px" }}>
-            <Clock size={20} style={{ color: "var(--cyan-highlight)", flexShrink: 0, marginTop: "2px" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <h4 style={{ fontSize: "1rem", fontWeight: 600, margin: 0 }}>Jadwal Pembaruan Otomatis</h4>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
-                Server backend kami secara berkala menjalankan tugas sinkronisasi otomatis: pembaruan harga inventaris aktif setiap <strong>30 menit</strong>, sinkronisasi data pasar harian setiap pukul <strong>02:00 dini hari</strong>, dan pembaruan database katalog secara penuh setiap hari <strong>Minggu pukul 04:00 subuh</strong>.
-              </p>
-            </div>
-          </div>
         </div>
       </main>
     </div>

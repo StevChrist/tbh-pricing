@@ -504,6 +504,7 @@ export default function ItemsPage() {
                 <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "rgba(0, 0, 0, 0.15)" }}>
                   {renderSortHeader("ITEM", "name", "left")}
                   {renderSortHeader("RARITY", "rarity", "left")}
+                  <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)" }}>TRADABLE</th>
                   <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)" }}>TYPE</th>
                   <th style={{ padding: "12px 16px", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)" }}>CLASS</th>
                   {renderSortHeader("LV", "level", "center")}
@@ -514,7 +515,7 @@ export default function ItemsPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: "48px", textAlign: "center", color: "var(--text-muted)" }}>
+                    <td colSpan={8} style={{ padding: "48px", textAlign: "center", color: "var(--text-muted)" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                         <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
                         Loading items...
@@ -523,7 +524,7 @@ export default function ItemsPage() {
                   </tr>
                 ) : items.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: "48px", textAlign: "center", color: "var(--text-muted)" }}>
+                    <td colSpan={8} style={{ padding: "48px", textAlign: "center", color: "var(--text-muted)" }}>
                       No items found.
                     </td>
                   </tr>
@@ -583,6 +584,22 @@ export default function ItemsPage() {
                         ) : (
                           "—"
                         )}
+                      </td>
+
+                      {/* Tradable Column */}
+                      <td style={{ padding: "14px 16px" }}>
+                        <span
+                          style={{
+                            fontSize: "0.8125rem",
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            backgroundColor: item.market_hash_name ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                            color: item.market_hash_name ? "#10b981" : "#ef4444",
+                          }}
+                        >
+                          {item.market_hash_name ? "Yes" : "No"}
+                        </span>
                       </td>
 
                       {/* Type Column */}

@@ -234,37 +234,53 @@ export function AddItemModal({ onClose, onSuccess }: AddItemModalProps) {
                             {item.display_name}
                           </span>
                         </div>
-                        {item.rarity ? (
-                          <div
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {/* Tradable Badge */}
+                          <span
                             style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "2px 8px",
-                              borderRadius: "9999px",
-                              border: "1px solid rgba(223, 200, 138, 0.25)",
-                              backgroundColor: "rgba(20, 20, 20, 0.6)",
-                              fontSize: "0.75rem",
-                              fontWeight: 500,
-                              color: "#dfc88a",
-                              lineHeight: 1,
+                              fontSize: "0.6875rem",
+                              fontWeight: 600,
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              backgroundColor: item.market_hash_name ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                              color: item.market_hash_name ? "#10b981" : "#ef4444",
                             }}
                           >
-                            <span
+                            {item.market_hash_name ? "Tradable" : "Not Tradable"}
+                          </span>
+
+                          {item.rarity ? (
+                            <div
                               style={{
-                                width: "6px",
-                                height: "6px",
-                                borderRadius: "1.5px",
-                                backgroundColor: getRarityStyles(item.rarity).dotColor,
-                                display: "inline-block",
-                                boxShadow: `0 0 4px ${getRarityStyles(item.rarity).dotColor}`,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                padding: "2px 8px",
+                                borderRadius: "9999px",
+                                border: "1px solid rgba(223, 200, 138, 0.25)",
+                                backgroundColor: "rgba(20, 20, 20, 0.6)",
+                                fontSize: "0.75rem",
+                                fontWeight: 500,
+                                color: "#dfc88a",
+                                lineHeight: 1,
                               }}
-                            />
-                            {item.rarity}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>—</span>
-                        )}
+                            >
+                              <span
+                                style={{
+                                  width: "6px",
+                                  height: "6px",
+                                  borderRadius: "1.5px",
+                                  backgroundColor: getRarityStyles(item.rarity).dotColor,
+                                  display: "inline-block",
+                                  boxShadow: `0 0 4px ${getRarityStyles(item.rarity).dotColor}`,
+                                }}
+                              />
+                              {item.rarity}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>—</span>
+                          )}
+                        </div>
                       </div>
                     </button>
                   ))}
