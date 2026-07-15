@@ -67,6 +67,8 @@ interface InventoryTableProps {
   filterRarity?: string;
   showBulkSelect?: boolean;
   readOnly?: boolean;
+  items?: InventoryItem[];
+  loading?: boolean;
 }
 
 interface EditModalProps {
@@ -578,9 +580,11 @@ export function InventoryTable({
   filterRarity,
   showBulkSelect = false,
   readOnly = false,
+  items: propItems,
+  loading: propLoading,
 }: InventoryTableProps) {
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalItems, setItems] = useState<InventoryItem[]>([]);
+  const [internalLoading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [alertItem, setAlertItem] = useState<InventoryItem | null>(null);
@@ -589,6 +593,7 @@ export function InventoryTable({
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const fetchInventory = useCallback(async () => {
+    if (propItems !== undefined) return;
     setLoading(true);
     try {
       const { data } = await inventoryApi.list();
@@ -598,14 +603,19 @@ export function InventoryTable({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [propItems]);
 
   useEffect(() => {
-    fetchInventory();
-  }, [fetchInventory]);
+    if (propItems === undefined) {
+      fetchInventory();
+    }
+  }, [fetchInventory, propItems]);
 
   // Auto-refresh: re-fetch when backend reports new price sync
-  useAutoRefresh(fetchInventory);
+  useAutoRefresh(propItems === undefined ? fetchInventory : () => {});
+
+  const items = propItems !== undefined ? propItems : internalItems;
+  const loading = propLoading !== undefined ? propLoading : internalLoading;
 
   const filteredItems = useMemo(() => {
     return filterRarity
@@ -942,7 +952,16 @@ export function InventoryTable({
   ]);
 
   const tableItems = useMemo(() => {
-    return readOnly ? filteredItems.slice(0, 10) : filteredItems;
+    if (readOnly) {
+      return [...filteredItems]
+        .sort((a, b) => {
+          const valA = (a.latest_price?.lowest_price_idr || 0) * a.quantity;
+          const valB = (b.latest_price?.lowest_price_idr || 0) * b.quantity;
+          return valB - valA;
+        })
+        .slice(0, 8);
+    }
+    return filteredItems;
   }, [readOnly, filteredItems]);
 
   const table = useReactTable({
@@ -1058,7 +1077,7 @@ export function InventoryTable({
           </table>
         </div>
 
-        {readOnly && filteredItems.length > 10 && (
+        {readOnly && filteredItems.length > 8 && (
           <div
             style={{
               textAlign: "center",
