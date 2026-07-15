@@ -236,8 +236,7 @@ async def run_startup_jobs() -> None:
                 logger.info("Startup: master_items table is empty, triggering initial full seeding...")
                 await run_daily_market_sync(mode="full")
             else:
-                logger.info("Startup: master_items table populated with %d items. Triggering immediate price refresh...", count)
-                await refresh_all_inventory_prices()
+                logger.info("Startup: master_items table populated with %d items. Database is ready.", count)
         except Exception as exc:
             logger.error("Startup: error executing startup jobs: %s", exc)
 

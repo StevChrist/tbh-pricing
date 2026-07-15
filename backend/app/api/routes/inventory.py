@@ -132,44 +132,7 @@ async def add_inventory_item(
             detail="Item already in inventory",
         )
 
-    # Inline refresh price from Steam so it says "just now" immediately
-    price = None
-    if inv.master_item.market_hash_name:
-        try:
-            delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
-            async with SteamMarketClient(request_delay=delay) as client:
-                result = await client.get_item_price(inv.master_item.market_hash_name)
-            if result and result["fetch_status"] == "ok":
-                price = await crud.create_price_snapshot(
-                    db,
-                    inv.master_item_id,
-                    result["lowest_price_idr"],
-                    result["median_price_idr"],
-                    result["lowest_price_usd"],
-                    result["median_price_usd"],
-                    result["volume"],
-                    result["fetch_status"],
-                )
-                await crud.upsert_market_summary(
-                    db,
-                    master_item_id=inv.master_item_id,
-                    market_hash_name=inv.master_item.market_hash_name,
-                    latest_price_idr=result["lowest_price_idr"],
-                    latest_price_usd=result["lowest_price_usd"],
-                    median_price_idr=result["median_price_idr"],
-                    median_price_usd=result["median_price_usd"],
-                    volume=result["volume"],
-                    market_status=result["fetch_status"],
-                )
-                # Update last_run_at to alert other components/tabs
-                now_str = datetime.now(timezone.utc).isoformat()
-                await crud.set_setting(db, "last_run_at", now_str)
-                await db.commit()
-        except Exception as exc:
-            logger.warning("Failed to refresh price inline during item add: %s", exc)
-
-    if not price:
-        price = await crud.get_latest_price(db, inv.master_item_id)
+    price = await crud.get_latest_price(db, inv.master_item_id)
 
     await crud.log_activity(
         db,
