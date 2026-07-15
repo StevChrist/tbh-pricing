@@ -445,6 +445,7 @@ async def get_inventory_summary(db: AsyncSession, user_id: int) -> dict[str, Any
     }
 
 
+
 async def get_all_inventory_master_ids(db: AsyncSession) -> list[int]:
     """Get all distinct master_item_ids across ALL users (for scheduler)."""
     result = await db.execute(
@@ -453,9 +454,97 @@ async def get_all_inventory_master_ids(db: AsyncSession) -> list[int]:
     return list(result.scalars().all())
 
 
-# ===========================================================================
-# Price History
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# Batch price sync helpers
+# ---------------------------------------------------------------------------
+
+
+async def get_tradable_items_count(db: AsyncSession) -> int:
+    """Return total number of items that have a market_hash_name (tradable on Steam)."""
+    result = await db.execute(
+        select(func.count(MasterItem.id)).where(MasterItem.market_hash_name.isnot(None))
+    )
+    return result.scalar_one() or 0
+
+
+async def get_tradable_items_batch(
+    db: AsyncSession, offset: int, limit: int
+) -> list[MasterItem]:
+    """
+    Return a paginated slice of tradable MasterItems ordered by id.
+    Used by the batch price sync scheduler to fetch one chunk at a time.
+    """
+    result = await db.execute(
+        select(MasterItem)
+        .where(MasterItem.market_hash_name.isnot(None))
+        .order_by(MasterItem.id.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def bulk_upsert_market_prices(
+    db: AsyncSession,
+    updates: list[dict],
+) -> int:
+    """
+    Efficiently update MarketSummary rows for a batch of items.
+
+    Each entry in `updates` should have:
+        master_item_id, market_hash_name, latest_price_idr, latest_price_usd,
+        volume, market_status, market_url (optional)
+
+    Returns count of rows updated.
+    """
+    from datetime import datetime, timezone
+    now_ts = datetime.now(timezone.utc)
+    updated = 0
+
+    # Collect all master_item_ids for this batch
+    ids = [u["master_item_id"] for u in updates]
+    existing_result = await db.execute(
+        select(MarketSummary).where(MarketSummary.master_item_id.in_(ids))
+    )
+    existing_map: dict[int, MarketSummary] = {
+        s.master_item_id: s for s in existing_result.scalars().all()
+    }
+
+    for u in updates:
+        mid = u["master_item_id"]
+        if mid in existing_map:
+            s = existing_map[mid]
+            s.latest_price_idr = u.get("latest_price_idr")
+            s.latest_price_usd = u.get("latest_price_usd")
+            s.volume = u.get("volume")
+            s.market_status = u.get("market_status", "ok")
+            s.last_checked = now_ts
+            s.price_synced_at = now_ts
+            if u.get("market_url"):
+                s.market_url = u["market_url"]
+        else:
+            s = MarketSummary(
+                master_item_id=mid,
+                market_hash_name=u["market_hash_name"],
+                market_url=u.get("market_url"),
+                latest_price_idr=u.get("latest_price_idr"),
+                latest_price_usd=u.get("latest_price_usd"),
+                median_price_idr=None,
+                median_price_usd=None,
+                volume=u.get("volume"),
+                currency="USD",
+                market_status=u.get("market_status", "ok"),
+                last_checked=now_ts,
+                price_synced_at=now_ts,
+            )
+            db.add(s)
+        updated += 1
+
+    await db.flush()
+    return updated
+
+
+
 
 
 async def get_latest_price(

@@ -242,6 +242,8 @@ class MarketSummary(Base):
     currency: Mapped[str | None] = mapped_column(String(16), nullable=True, default="USD")
     market_status: Mapped[str] = mapped_column(String(32), default="ok", nullable=False)
     last_checked: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Timestamp when price was last successfully fetched from Steam (used for cache freshness)
+    price_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     master_item: Mapped["MasterItem"] = relationship(back_populates="market_summary")

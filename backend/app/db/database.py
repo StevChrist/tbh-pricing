@@ -63,6 +63,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "is_running": "false",
     "items_refreshed_last_run": "0",
     "items_unavailable_last_run": "0",
+    "sync_batch_index": "0",
 }
 
 
@@ -145,6 +146,16 @@ async def init_db() -> None:
                 logger.info("Database migration: Dropped NOT NULL constraint on user_login_history.user_id")
             except Exception as e:
                 logger.warning("Database migration: Could not drop NOT NULL constraint on user_login_history.user_id: %s", e)
+
+        # 5. market_summary table — add price_synced_at for cache freshness tracking
+        try:
+            columns_market = [c["name"] for c in inspector.get_columns("market_summary")]
+            if "price_synced_at" not in columns_market:
+                datetime_type_ms = "TIMESTAMP WITH TIME ZONE" if is_postgresql else "DATETIME"
+                connection.execute(text(f"ALTER TABLE market_summary ADD COLUMN price_synced_at {datetime_type_ms}"))
+                logger.info("Database migration: Added column 'price_synced_at' to market_summary table.")
+        except Exception as e:
+            logger.warning("Database migration: market_summary.price_synced_at: %s", e)
 
     try:
         async with engine.begin() as conn:

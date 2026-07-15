@@ -11,10 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core import alert_checker
-from app.core.steam import SteamMarketClient
 from app.db import crud
-from app.db.database import AsyncSessionLocal, get_db
+from app.db.database import get_db
 from app.db.models import User
 from app.schemas.prices import PriceHistoryPoint, PriceSnapshot, PriceStatus, RefreshResponse
 
@@ -97,69 +95,45 @@ async def refresh_single_item(
     _: User = Depends(get_current_user),
 ) -> RefreshResponse:
     """
-    Manually refresh prices for a single master item.
-    Applies the mandatory 3-second delay before the Steam request.
+    Return the cached price for a single master item from the MarketSummary table.
+    Prices are updated automatically by the background batch sync job every 15 minutes.
+    This endpoint no longer calls Steam directly to avoid rate limiting.
     """
     item = await crud.get_master_item_by_id(db, master_item_id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master item not found")
 
     if not item.market_hash_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Item is not tradable on Steam Market (missing market hash name)."
+        return RefreshResponse(
+            message=f"'{item.display_name}' is not tradable on Steam Market.",
+            items_refreshed=0,
+            items_unavailable=1,
+            items_error=0,
         )
 
-    delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
-    refreshed = unavailable = errors = 0
-
-    async with SteamMarketClient(request_delay=delay) as client:
-        result = await client.get_item_price(item.market_hash_name)
-
-    if result is None:
-        errors = 1
-        await crud.create_price_snapshot(
-            db, master_item_id, None, None, None, None, None, "error"
+    # Read latest cached price from DB — no live Steam API call
+    price = await crud.get_latest_price(db, master_item_id)
+    if price and price.fetch_status == "ok":
+        return RefreshResponse(
+            message=f"Cached price for '{item.display_name}' (auto-updated every 15 min).",
+            items_refreshed=1,
+            items_unavailable=0,
+            items_error=0,
+        )
+    elif price and price.fetch_status == "unavailable":
+        return RefreshResponse(
+            message=f"'{item.display_name}' is currently not listed on Steam Market.",
+            items_refreshed=0,
+            items_unavailable=1,
+            items_error=0,
         )
     else:
-        if result["fetch_status"] == "unavailable":
-            unavailable = 1
-        else:
-            refreshed = 1
-        prev_snapshot = await crud.get_latest_price(db, master_item_id)
-        snapshot = await crud.create_price_snapshot(
-            db,
-            master_item_id,
-            result["lowest_price_idr"],
-            result["median_price_idr"],
-            result["lowest_price_usd"],
-            result["median_price_usd"],
-            result["volume"],
-            result["fetch_status"],
+        return RefreshResponse(
+            message=f"No price data yet for '{item.display_name}'. It will be synced in the next batch.",
+            items_refreshed=0,
+            items_unavailable=0,
+            items_error=0,
         )
-        await crud.upsert_market_summary(
-            db,
-            master_item_id=master_item_id,
-            market_hash_name=item.market_hash_name,
-            latest_price_idr=result["lowest_price_idr"],
-            latest_price_usd=result["lowest_price_usd"],
-            median_price_idr=result["median_price_idr"],
-            median_price_usd=result["median_price_usd"],
-            volume=result["volume"],
-            market_status=result["fetch_status"],
-        )
-        # Update last_run_at to alert other components/tabs
-        now_str = datetime.now(timezone.utc).isoformat()
-        await crud.set_setting(db, "last_run_at", now_str)
-        await db.commit()
-        await alert_checker.check_alerts_for_item(db, master_item_id, snapshot, prev_snapshot)
-
-    return RefreshResponse(
-        message=f"Refresh complete for '{item.display_name}'.",
-        items_refreshed=refreshed,
-        items_unavailable=unavailable,
-        items_error=errors,
-    )
 
 
 @router.post("/refresh", response_model=RefreshResponse)
