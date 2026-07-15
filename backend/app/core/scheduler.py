@@ -286,6 +286,19 @@ def create_scheduler(interval_minutes: int = 30) -> AsyncIOScheduler:
         replace_existing=True,
         max_instances=1,
     )
+    # Add weekly full seeding job (once every Sunday at 4:00 AM)
+    scheduler.add_job(
+        run_daily_market_sync,
+        trigger="cron",
+        day_of_week="sun",
+        hour=4,
+        minute=0,
+        args=["full"],
+        id="weekly_full_market_sync",
+        name="Weekly Full Steam Market Synchronization",
+        replace_existing=True,
+        max_instances=1,
+    )
     # Add daily logs cleanup job (once every 24 hours at 3:00 AM)
     scheduler.add_job(
         cleanup_old_logs_job,
