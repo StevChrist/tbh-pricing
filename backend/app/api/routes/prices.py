@@ -173,82 +173,22 @@ async def refresh_all_inventory(
     Enforces asyncio.sleep(3) between each item request.
     Logs but does not abort on per-item errors.
     """
-    from datetime import datetime, timezone
-
     is_running = (await crud.get_setting(db, "is_running") or "false").lower() == "true"
     if is_running:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A refresh is already in progress.",
+            detail="A refresh or synchronization is already in progress.",
         )
 
     await crud.set_setting(db, "is_running", "true")
     await db.commit()
 
-    master_ids = await crud.get_all_inventory_master_ids(db)
-    total_items = len(master_ids)
-    delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
-    refreshed = unavailable = errors = skipped_untradable = 0
-
     try:
-        async with SteamMarketClient(request_delay=delay) as client:
-            for mid in master_ids:
-                item = await crud.get_master_item_by_id(db, mid)
-                if not item:
-                    continue
-                if not item.market_hash_name:
-                    skipped_untradable += 1
-                    continue
-                try:
-                    result = await client.get_item_price(item.market_hash_name)
-                    if result is None:
-                        errors += 1
-                        await crud.create_price_snapshot(
-                            db, mid, None, None, None, None, None, "error"
-                        )
-                    else:
-                        if result["fetch_status"] == "unavailable":
-                            unavailable += 1
-                        else:
-                            refreshed += 1
-                        prev_snapshot = await crud.get_latest_price(db, mid)
-                        snapshot = await crud.create_price_snapshot(
-                            db,
-                            mid,
-                            result["lowest_price_idr"],
-                            result["median_price_idr"],
-                            result["lowest_price_usd"],
-                            result["median_price_usd"],
-                            result["volume"],
-                            result["fetch_status"],
-                        )
-                        await crud.upsert_market_summary(
-                            db,
-                            master_item_id=mid,
-                            market_hash_name=item.market_hash_name,
-                            latest_price_idr=result["lowest_price_idr"],
-                            latest_price_usd=result["lowest_price_usd"],
-                            median_price_idr=result["median_price_idr"],
-                            median_price_usd=result["median_price_usd"],
-                            volume=result["volume"],
-                            market_status=result["fetch_status"],
-                        )
-                        await alert_checker.check_alerts_for_item(
-                            db, mid, snapshot, prev_snapshot
-                        )
-                    await db.commit()
-                except Exception as exc:
-                    logger.error("Error refreshing item_id=%d: %s", mid, exc)
-                    errors += 1
-    finally:
-        now = datetime.now(timezone.utc).isoformat()
-        await crud.set_setting(db, "is_running", "false")
-        await crud.set_setting(db, "last_run_at", now)
-        await crud.set_setting(db, "items_refreshed_last_run", str(refreshed))
-        await crud.set_setting(db, "items_unavailable_last_run", str(unavailable))
-        await db.commit()
-        await alert_checker.expire_old_alerts(db)
-        await db.commit()
+        from app.core.scheduler import sync_all_steam_prices
+        res = await sync_all_steam_prices(db)
+        refreshed = res.get("refreshed", 0)
+        total = res.get("total", 0)
+        errors = res.get("errors", 0)
 
         # Log manual refresh activity
         client_ip = request.client.host if request.client else current_user.last_ip_address
@@ -257,20 +197,17 @@ async def refresh_all_inventory(
             user_id=current_user.id,
             username=current_user.username,
             action="price_sync",
-            details=f"Manual price refresh complete — checked={total_items} (refreshed={refreshed} unavailable={unavailable} skipped_untradable={skipped_untradable} errors={errors})",
+            details=f"Manual price refresh complete — synced total={total} (refreshed={refreshed} errors={errors})",
             ip_address=client_ip
         )
         await db.commit()
+    finally:
+        await crud.set_setting(db, "is_running", "false")
+        await db.commit()
 
-    logger.info(
-        "Manual refresh complete: refreshed=%d unavailable=%d errors=%d",
-        refreshed,
-        unavailable,
-        errors,
-    )
     return RefreshResponse(
         message="Refresh complete.",
         items_refreshed=refreshed,
-        items_unavailable=unavailable,
+        items_unavailable=0,
         items_error=errors,
     )

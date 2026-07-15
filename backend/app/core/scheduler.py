@@ -25,21 +25,104 @@ logger = logging.getLogger(__name__)
 _JOB_ID = "refresh_all_inventory_prices"
 
 
+async def sync_all_steam_prices(db: AsyncSession) -> dict:
+    """
+    Fetch all items listed on the Steam Market for our app ID,
+    match them with database MasterItems, update MarketSummary,
+    and insert PriceHistory snapshots for updated items.
+    """
+    from app.core.matcher import find_wiki_match
+    
+    logger.info("Starting bulk Steam price synchronization from search render.")
+    steam_items = []
+    async with SteamMarketClient() as steam_client:
+        try:
+            steam_items = await steam_client.get_all_market_items()
+        except Exception as steam_err:
+            logger.error("Steam search/render failed during price sync: %s", steam_err)
+            return {"refreshed": 0, "errors": 1, "total": 0}
+
+    if not steam_items:
+        logger.info("No items retrieved from Steam Market search.")
+        return {"refreshed": 0, "errors": 0, "total": 0}
+
+    refreshed = 0
+    # Fetch all database items to match against
+    result = await db.execute(select(MasterItem))
+    db_items_list = result.scalars().all()
+
+    for s_item in steam_items:
+        matched_wiki = find_wiki_match(s_item, [
+            {
+                "key": item.internal_item_id,
+                "name": item.display_name,
+                "market_hash_name": item.market_hash_name,
+                "grade": item.rarity.value if item.rarity else "",
+                "variant": (item.item_metadata or {}).get("variant")
+            } for item in db_items_list
+        ])
+        
+        if matched_wiki:
+            db_item = next(i for i in db_items_list if i.internal_item_id == matched_wiki["key"])
+            
+            # Ensure market_hash_name is populated
+            if not db_item.market_hash_name:
+                db_item.market_hash_name = s_item["market_hash_name"]
+
+            latest_usd = s_item.get("latest_price_usd")
+            latest_idr = s_item.get("latest_price_idr")
+            volume = s_item.get("volume")
+            market_url = s_item.get("market_url")
+
+            # Update MarketSummary
+            await crud.upsert_market_summary(
+                db,
+                master_item_id=db_item.id,
+                market_hash_name=s_item["market_hash_name"],
+                latest_price_idr=latest_idr,
+                latest_price_usd=latest_usd,
+                median_price_idr=None,
+                median_price_usd=None,
+                volume=volume,
+                market_status="ok",
+                market_url=market_url,
+            )
+
+            # Insert into PriceHistory ONLY if price/listings changed from latest
+            prev_snapshot = await crud.get_latest_price(db, db_item.id)
+            price_changed = (
+                prev_snapshot is None or
+                prev_snapshot.lowest_price_usd != latest_usd or
+                prev_snapshot.volume != volume or
+                prev_snapshot.fetch_status != "ok"
+            )
+            
+            if price_changed:
+                snapshot = await crud.create_price_snapshot(
+                    db,
+                    master_item_id=db_item.id,
+                    lowest_price_idr=latest_idr,
+                    median_price_idr=None,
+                    lowest_price_usd=latest_usd,
+                    median_price_usd=None,
+                    volume=volume,
+                    fetch_status="ok"
+                )
+                refreshed += 1
+                await alert_checker.check_alerts_for_item(
+                    db, db_item.id, snapshot, prev_snapshot
+                )
+
+    await db.commit()
+    return {"refreshed": refreshed, "total": len(steam_items), "errors": 0}
+
+
 async def refresh_all_inventory_prices() -> None:
     """
-    Scheduled job: refresh Steam prices for all inventoried items.
-
-    Steps:
-    1. Load delay setting from app_settings.
-    2. Query all distinct master_item_ids across all users.
-    3. Fetch IDR + USD prices with enforced asyncio.sleep(3) per item.
-    4. Update market_summary table.
-    5. Write price_history snapshot ONLY if price changes.
-    6. Run alert checker per item.
+    Scheduled job: Sync Steam prices for all catalog items bulk-paginated
+    every 30 minutes, ensuring the database is always updated.
     """
     logger.info("Scheduler: starting price refresh job.")
-    refreshed = unavailable = errors = skipped_untradable = 0
-
     async with AsyncSessionLocal() as db:
         # Check if another refresh/sync is running
         is_running = (await crud.get_setting(db, "is_running") or "false").lower() == "true"
@@ -51,94 +134,15 @@ async def refresh_all_inventory_prices() -> None:
         await crud.set_setting(db, "is_running", "true")
         await db.commit()
 
-        delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
-        master_ids = await crud.get_all_inventory_master_ids(db)
-        total_items = len(master_ids)
-
-        if not master_ids:
-            logger.info("Scheduler: no inventory items found — skipping refresh.")
-            await crud.set_setting(db, "is_running", "false")
-            await db.commit()
-            return
-
-        logger.info("Scheduler: refreshing %d items.", len(master_ids))
-
         try:
-            async with SteamMarketClient(request_delay=delay) as client:
-                for mid in master_ids:
-                    item = await crud.get_master_item_by_id(db, mid)
-                    if not item:
-                        continue
-                    if not item.market_hash_name:
-                        skipped_untradable += 1
-                        continue
-                    try:
-                        result = await client.get_item_price(item.market_hash_name)
-                        if result is None:
-                            errors += 1
-                            # Error record in price_history
-                            await crud.create_price_snapshot(
-                                db, mid, None, None, None, None, None, "error"
-                            )
-                        else:
-                            if result["fetch_status"] == "unavailable":
-                                unavailable += 1
-                            else:
-                                refreshed += 1
-
-                            latest_usd = result["lowest_price_usd"]
-                            latest_idr = result["lowest_price_idr"]
-                            volume = result["volume"]
-                            now_ts = datetime.now(timezone.utc)
-
-                            # 1. Update MarketSummary
-                            await crud.upsert_market_summary(
-                                db,
-                                master_item_id=mid,
-                                market_hash_name=item.market_hash_name,
-                                latest_price_idr=latest_idr,
-                                latest_price_usd=latest_usd,
-                                median_price_idr=result["median_price_idr"],
-                                median_price_usd=result["median_price_usd"],
-                                volume=volume,
-                                market_status=result["fetch_status"],
-                            )
-
-                            # 2. Compare against PriceHistory and insert only if changed
-                            prev_snapshot = await crud.get_latest_price(db, mid)
-                            price_changed = (
-                                prev_snapshot is None or
-                                prev_snapshot.lowest_price_usd != latest_usd or
-                                prev_snapshot.volume != volume or
-                                prev_snapshot.fetch_status != result["fetch_status"]
-                            )
-
-                            if price_changed:
-                                snapshot = await crud.create_price_snapshot(
-                                    db,
-                                    mid,
-                                    latest_idr,
-                                    result["median_price_idr"],
-                                    latest_usd,
-                                    result["median_price_usd"],
-                                    volume,
-                                    result["fetch_status"],
-                                )
-                                await alert_checker.check_alerts_for_item(
-                                    db, mid, snapshot, prev_snapshot
-                                )
-                        await db.commit()
-                    except Exception as exc:
-                        logger.error(
-                            "Scheduler: error refreshing master_item_id=%d: %s", mid, exc
-                        )
-                        errors += 1
-
-            # Update stats
+            res = await sync_all_steam_prices(db)
+            refreshed = res.get("refreshed", 0)
+            total = res.get("total", 0)
+            errors = res.get("errors", 0)
+            
             now = datetime.now(timezone.utc).isoformat()
             await crud.set_setting(db, "last_run_at", now)
             await crud.set_setting(db, "items_refreshed_last_run", str(refreshed))
-            await crud.set_setting(db, "items_unavailable_last_run", str(unavailable))
             await db.commit()
 
             await alert_checker.expire_old_alerts(db)
@@ -149,21 +153,15 @@ async def refresh_all_inventory_prices() -> None:
                 user_id=None,
                 username="system_scheduler",
                 action="price_sync",
-                details=f"Price refresh complete — checked={total_items} (refreshed={refreshed} unavailable={unavailable} skipped_untradable={skipped_untradable} errors={errors})",
+                details=f"Price refresh complete — synced total={total} (refreshed={refreshed} errors={errors})",
                 ip_address="127.0.0.1"
             )
             await db.commit()
-
+        except Exception as exc:
+            logger.error("Scheduler: failed to execute bulk price sync: %s", exc, exc_info=True)
         finally:
             await crud.set_setting(db, "is_running", "false")
             await db.commit()
-
-    logger.info(
-        "Scheduler: refresh complete — refreshed=%d unavailable=%d errors=%d",
-        refreshed,
-        unavailable,
-        errors,
-    )
 
 
 async def run_daily_market_sync(mode: str = "daily") -> None:
@@ -267,7 +265,8 @@ def create_scheduler(interval_minutes: int = 30) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         refresh_all_inventory_prices,
-        trigger=IntervalTrigger(minutes=interval_minutes),
+        trigger="cron",
+        minute="0,30",
         id=_JOB_ID,
         name="Refresh All Inventory Prices",
         replace_existing=True,
