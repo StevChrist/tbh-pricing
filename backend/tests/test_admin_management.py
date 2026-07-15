@@ -259,3 +259,76 @@ class TestAuthenticationStatusChecks(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn("Session invalidated", ctx.exception.detail)
         mock_response.delete_cookie.assert_called_once()
+
+    async def test_search_active_sessions_success(self) -> None:
+        from app.api.routes.admin import search_active_sessions
+        from app.db.models import UserSession
+
+        mock_db = AsyncMock()
+        admin_user = User(id=1, username="admin_user", role="admin")
+        mock_user = User(id=2, username="test_user", email="user@example.com")
+        mock_session = UserSession(
+            id="session_123",
+            user_id=2,
+            is_active=True,
+            ip_address="127.0.0.1",
+            browser="Chrome",
+            os="Windows",
+            created_at=datetime.now(timezone.utc),
+            last_activity_at=datetime.now(timezone.utc),
+            user=mock_user
+        )
+
+        mock_count_res = MagicMock()
+        mock_count_res.scalar.return_value = 1
+        
+        mock_session_res = MagicMock()
+        mock_session_res.scalars().all.return_value = [mock_session]
+        
+        mock_db.execute.side_effect = [mock_count_res, mock_session_res]
+
+        res = await search_active_sessions(
+            db=mock_db,
+            admin=admin_user,
+            limit=50,
+            offset=0
+        )
+
+        self.assertEqual(res["total"], 1)
+        self.assertEqual(res["sessions"][0]["username"], "test_user")
+
+    async def test_search_security_events_success(self) -> None:
+        from app.api.routes.admin import search_security_events
+        from app.db.models import SecurityEvent
+
+        mock_db = AsyncMock()
+        admin_user = User(id=1, username="admin_user", role="admin")
+        mock_user = User(id=2, username="test_user", email="user@example.com")
+        mock_event = SecurityEvent(
+            id=123,
+            timestamp=datetime.now(timezone.utc),
+            severity="WARNING",
+            user_id=2,
+            ip_address="127.0.0.1",
+            description="Testing event",
+            user=mock_user
+        )
+
+        mock_count_res = MagicMock()
+        mock_count_res.scalar.return_value = 1
+        
+        mock_event_res = MagicMock()
+        mock_event_res.scalars().all.return_value = [mock_event]
+        
+        mock_db.execute.side_effect = [mock_count_res, mock_event_res]
+
+        res = await search_security_events(
+            db=mock_db,
+            admin=admin_user,
+            limit=50,
+            offset=0
+        )
+
+        self.assertEqual(res["total"], 1)
+        self.assertEqual(res["events"][0]["username"], "test_user")
+

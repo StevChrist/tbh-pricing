@@ -772,8 +772,9 @@ async def search_active_sessions(
     """List and search all active sessions in the system."""
     from app.db.models import UserSession, User
     from sqlalchemy import select, and_, desc, or_
+    from sqlalchemy.orm import selectinload
     
-    stmt = select(UserSession).join(User).where(UserSession.is_active == True)
+    stmt = select(UserSession).options(selectinload(UserSession.user)).join(User).where(UserSession.is_active == True)
     
     if username:
         stmt = stmt.where(
@@ -913,8 +914,9 @@ async def search_security_events(
     """Search and filter system security audit events."""
     from app.db.models import SecurityEvent, User
     from sqlalchemy import select, func, and_, desc, or_
+    from sqlalchemy.orm import selectinload
     
-    stmt = select(SecurityEvent).outerjoin(User)
+    stmt = select(SecurityEvent).options(selectinload(SecurityEvent.user)).outerjoin(User)
     
     if username:
         stmt = stmt.where(
