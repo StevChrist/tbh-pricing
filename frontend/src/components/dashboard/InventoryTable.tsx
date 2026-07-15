@@ -766,6 +766,43 @@ export function InventoryTable({
       },
     },
     {
+      id: "tradable",
+      header: "TRADABLE",
+      accessorFn: (r) => r.master_item.market_hash_name ? "Yes" : "No",
+      cell: ({ row }) => {
+        const isTradable = !!row.original.master_item.market_hash_name;
+        return (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 10px",
+              borderRadius: "9999px",
+              backgroundColor: isTradable ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)",
+              border: `1px solid ${isTradable ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)"}`,
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: isTradable ? "#34d399" : "#f87171",
+              lineHeight: 1,
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: isTradable ? "#34d399" : "#f87171",
+                display: "inline-block",
+                boxShadow: `0 0 4px ${isTradable ? "#34d399" : "#f87171"}`,
+              }}
+            />
+            {isTradable ? "Yes" : "No"}
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: "quantity",
       header: "QTY",
       cell: ({ getValue }) => (
