@@ -104,6 +104,12 @@ async def refresh_single_item(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master item not found")
 
+    if not item.market_hash_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Item is not tradable on Steam Market (missing market hash name)."
+        )
+
     delay = int(await crud.get_setting(db, "steam_request_delay_seconds") or 3)
     refreshed = unavailable = errors = 0
 

@@ -256,7 +256,7 @@ class SteamMarketClient:
 
     async def get_item_price(
         self,
-        market_hash_name: str,
+        market_hash_name: str | None,
         currency_idr: int = CURRENCY_IDR,
         currency_usd: int = CURRENCY_USD,
     ) -> dict | None:
@@ -271,7 +271,15 @@ class SteamMarketClient:
         Returns None only on a hard connection failure.
         On success:false, returns dict with nulls and fetch_status='unavailable'.
         """
-        encoded = urllib.parse.quote(market_hash_name)
+        if not market_hash_name:
+            return {
+                "lowest_price_idr": None,
+                "median_price_idr": None,
+                "lowest_price_usd": None,
+                "median_price_usd": None,
+                "volume": None,
+                "fetch_status": "unavailable",
+            }
 
         # --- Fetch IDR ---
         idr_result = await self._fetch_single_currency(
