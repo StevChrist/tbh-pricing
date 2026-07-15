@@ -1,12 +1,13 @@
 """
 APScheduler async scheduler for periodic price refresh and database updates.
 
-Price sync strategy:
-  - All tradable items (~935) are divided into BATCH_SIZE chunks (default 300).
-  - One batch is fetched from Steam Market Search/Render every 15 minutes.
-  - Batch index rotates: 0 → 1 → 2 → ... → N → 0 → ...
-  - Users always read prices from the MarketSummary DB cache — never from Steam directly.
-  - Steam priceoverview endpoint is NEVER called by the scheduler.
+Price sync strategy (CORRECTED):
+  - Steam Search/Render returns 100 items per page.
+  - ~935 tradable items = ~10 pages × 3 sec delay = ~30 seconds total per run.
+  - ONE full sync run every 30 minutes at :00 and :30 — ALL tradable items updated.
+  - No batch rotation needed: 10 requests per run is well within Steam rate limits.
+  - On startup: immediately trigger a full price sync after catalog is verified.
+  - Steam priceoverview endpoint is NEVER called by this scheduler.
 """
 
 from __future__ import annotations
@@ -20,96 +21,76 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, func
 
 from app.core import alert_checker
-from app.core.steam import SteamMarketClient, _get_usd_to_idr_rate
+from app.core.steam import SteamMarketClient, _get_usd_to_idr_rate, SEARCH_RENDER_URL
 from app.db import crud
 from app.db.database import AsyncSessionLocal
 from app.db.models import MasterItem
 
 logger = logging.getLogger(__name__)
 
-_JOB_ID = "price_batch_sync"
-
-# Number of tradable items fetched per batch run (every 15 min)
-BATCH_SIZE = 300
+_JOB_ID = "price_full_sync"
 
 
 # ---------------------------------------------------------------------------
-# Core batch sync logic
+# Core full sync logic — all tradable items in one run
 # ---------------------------------------------------------------------------
 
 
-async def run_price_batch_sync() -> None:
+async def run_price_full_sync() -> None:
     """
-    Scheduled job running every 15 minutes.
+    Scheduled job: runs every 30 minutes at :00 and :30.
 
-    Fetches one batch of tradable items from the Steam Market Search/Render API
-    and updates the MarketSummary price cache in the database.
+    Fetches prices for ALL tradable items (~935) from the Steam Market
+    Search/Render API in a single run (~10 pages, ~30 seconds).
+    Updates MarketSummary cache and inserts PriceHistory snapshots.
 
-    Batch rotation:
-      - Reads current batch_index from app_settings.
-      - Fetches BATCH_SIZE items at that offset from master_items WHERE market_hash_name IS NOT NULL.
-      - Calls Steam Search/Render for each page of 100 items in this batch.
-      - Writes updated prices to market_summary via bulk_upsert_market_prices().
-      - Inserts PriceHistory snapshots only if price changed.
-      - Advances batch_index mod total_batches.
+    No batch rotation — one run covers everything.
     """
-    logger.info("Scheduler: starting price batch sync job.")
+    logger.info("Scheduler: starting full price sync.")
 
     async with AsyncSessionLocal() as db:
         # Guard: skip if another job is already running
         is_running = (await crud.get_setting(db, "is_running") or "false").lower() == "true"
         if is_running:
-            logger.warning("Scheduler: another sync is in progress — skipping price batch.")
+            logger.warning("Scheduler: another sync is in progress — skipping.")
             return
 
         await crud.set_setting(db, "is_running", "true")
         await db.commit()
 
         try:
-            # --- Determine batch parameters ---
+            # --- Load all tradable items from DB (build lookup map) ---
             total_tradable = await crud.get_tradable_items_count(db)
             if total_tradable == 0:
-                logger.info("Scheduler: no tradable items found — skipping.")
+                logger.info("Scheduler: no tradable items in DB — skipping price sync.")
                 return
 
-            total_batches = max(1, math.ceil(total_tradable / BATCH_SIZE))
-            batch_index = int(await crud.get_setting(db, "sync_batch_index") or 0)
-            batch_index = batch_index % total_batches  # safety clamp
-            offset = batch_index * BATCH_SIZE
+            # Fetch all tradable items in one query (paginate internally if needed)
+            db_items = await crud.get_tradable_items_batch(db, offset=0, limit=total_tradable)
 
-            logger.info(
-                "Scheduler: batch %d/%d (offset=%d, size=%d, total_tradable=%d).",
-                batch_index + 1, total_batches, offset, BATCH_SIZE, total_tradable,
-            )
-
-            # --- Load this batch of items from DB ---
-            db_items = await crud.get_tradable_items_batch(db, offset=offset, limit=BATCH_SIZE)
-            if not db_items:
-                logger.info("Scheduler: batch %d returned no items — advancing index.", batch_index)
-                next_index = (batch_index + 1) % total_batches
-                await crud.set_setting(db, "sync_batch_index", str(next_index))
-                await db.commit()
-                return
-
-            # Build lookup: market_hash_name → MasterItem
+            # market_hash_name → MasterItem lookup
             hash_to_item: dict[str, MasterItem] = {
                 item.market_hash_name: item
                 for item in db_items
                 if item.market_hash_name
             }
-            target_hashes = set(hash_to_item.keys())
+            remaining_hashes = set(hash_to_item.keys())
 
-            # --- Fetch prices from Steam Search/Render API ---
+            logger.info(
+                "Scheduler: syncing %d tradable items (~%d Steam pages).",
+                len(hash_to_item),
+                math.ceil(len(hash_to_item) / 100),
+            )
+
+            # --- Paginate through Steam Search/Render to collect all prices ---
             rate = await _get_usd_to_idr_rate()
             matched_prices: list[dict] = []
 
             async with SteamMarketClient() as steam_client:
-                # Search Render returns 100 items per page — paginate within batch
                 start = 0
                 page_size = 100
-                consecutive_empty = 0
 
-                while start < len(db_items) + page_size:
+                while True:
                     params = {
                         "appid": 3678970,
                         "norender": 1,
@@ -117,10 +98,12 @@ async def run_price_batch_sync() -> None:
                         "count": page_size,
                         "currency": 1,  # USD
                     }
-                    from app.core.steam import SEARCH_RENDER_URL
+
                     response = await steam_client._get_with_backoff(SEARCH_RENDER_URL, params)
                     if response is None:
-                        logger.warning("Scheduler: Steam search/render returned None at start=%d — stopping batch.", start)
+                        logger.warning(
+                            "Scheduler: Steam Search/Render returned None at start=%d — stopping.", start
+                        )
                         break
 
                     try:
@@ -133,18 +116,13 @@ async def run_price_batch_sync() -> None:
                     total_count = data.get("total_count", 0)
 
                     if not results:
-                        consecutive_empty += 1
-                        if consecutive_empty >= 2:
-                            break
-                        start += page_size
-                        continue
+                        logger.info("Scheduler: no results at start=%d (total=%d) — done.", start, total_count)
+                        break
 
-                    consecutive_empty = 0
-
-                    # Match results against our batch's target hashes
+                    # Match each Steam result against our tradable DB items
                     for raw in results:
                         hash_name = raw.get("hash_name", raw.get("name", ""))
-                        if hash_name not in target_hashes:
+                        if hash_name not in remaining_hashes:
                             continue
 
                         parsed = await steam_client.parse_market_search_result(raw, rate)
@@ -158,17 +136,21 @@ async def run_price_batch_sync() -> None:
                             "market_status": "ok",
                             "market_url": parsed.get("market_url"),
                         })
-                        # Remove from target set once matched
-                        target_hashes.discard(hash_name)
+                        remaining_hashes.discard(hash_name)
+
+                    logger.info(
+                        "Scheduler: page start=%d — matched %d/%d items so far.",
+                        start, len(matched_prices), len(hash_to_item),
+                    )
 
                     start += len(results)
 
-                    # Stop paginating once all targets are matched, or past total
-                    if start >= total_count or not target_hashes:
+                    # Stop when we've passed Steam's total or matched everything
+                    if start >= total_count or not remaining_hashes:
                         break
 
-            # Items in target_hashes that were NOT found on Steam → mark unavailable
-            for missing_hash in target_hashes:
+            # Items not found on Steam → mark as unavailable in cache
+            for missing_hash in remaining_hashes:
                 db_item = hash_to_item[missing_hash]
                 matched_prices.append({
                     "master_item_id": db_item.id,
@@ -180,13 +162,13 @@ async def run_price_batch_sync() -> None:
                     "market_url": None,
                 })
 
-            # --- Bulk update DB prices ---
+            # --- Bulk upsert prices into MarketSummary ---
             updated_count = 0
             if matched_prices:
                 updated_count = await crud.bulk_upsert_market_prices(db, matched_prices)
                 await db.commit()
 
-            # --- Insert PriceHistory snapshots for changed prices ---
+            # --- Insert PriceHistory snapshots only for changed prices ---
             snapshot_count = 0
             for price_data in matched_prices:
                 mid = price_data["master_item_id"]
@@ -220,21 +202,21 @@ async def run_price_batch_sync() -> None:
             if snapshot_count:
                 await db.commit()
 
-            # --- Expire old alerts ---
+            # Expire old alerts
             await alert_checker.expire_old_alerts(db)
             await db.commit()
 
-            # --- Advance batch index for next run ---
-            next_index = (batch_index + 1) % total_batches
+            # Update settings
             now_str = datetime.now(timezone.utc).isoformat()
-            await crud.set_setting(db, "sync_batch_index", str(next_index))
             await crud.set_setting(db, "last_run_at", now_str)
             await crud.set_setting(db, "items_refreshed_last_run", str(updated_count))
             await db.commit()
 
             logger.info(
-                "Scheduler: batch %d/%d complete — updated=%d snapshots=%d next_batch=%d.",
-                batch_index + 1, total_batches, updated_count, snapshot_count, next_index + 1,
+                "Scheduler: full price sync complete — updated=%d, snapshots=%d, unavailable=%d.",
+                len([p for p in matched_prices if p["market_status"] == "ok"]),
+                snapshot_count,
+                len([p for p in matched_prices if p["market_status"] == "unavailable"]),
             )
 
             await crud.log_activity(
@@ -243,39 +225,40 @@ async def run_price_batch_sync() -> None:
                 username="system_scheduler",
                 action="price_sync",
                 details=(
-                    f"Price batch {batch_index + 1}/{total_batches} complete "
-                    f"(updated={updated_count}, snapshots={snapshot_count})"
+                    f"Full price sync complete: "
+                    f"updated={updated_count}, "
+                    f"ok={len([p for p in matched_prices if p['market_status'] == 'ok'])}, "
+                    f"unavailable={len([p for p in matched_prices if p['market_status'] == 'unavailable'])}, "
+                    f"snapshots={snapshot_count}"
                 ),
                 ip_address="127.0.0.1",
             )
             await db.commit()
 
         except Exception as exc:
-            logger.error("Scheduler: price batch sync failed: %s", exc, exc_info=True)
+            logger.error("Scheduler: full price sync failed: %s", exc, exc_info=True)
         finally:
             await crud.set_setting(db, "is_running", "false")
             await db.commit()
 
 
 # ---------------------------------------------------------------------------
-# Legacy alias for manual /prices/refresh endpoint
-# (now reads from DB instead of calling Steam)
+# Compatibility shim for manual /prices/refresh endpoint
 # ---------------------------------------------------------------------------
 
 
 async def sync_all_steam_prices(db) -> dict:
     """
-    Compatibility shim — triggers a full batch sync run from the current batch index.
-    Called by the manual /prices/refresh endpoint.
-    Does NOT call priceoverview. Uses Search/Render only.
+    Triggered by the manual /prices/refresh API endpoint.
+    Runs a full sync immediately, then returns stats from settings.
     """
-    await run_price_batch_sync()
+    await run_price_full_sync()
     refreshed = int(await crud.get_setting(db, "items_refreshed_last_run") or 0)
     return {"refreshed": refreshed, "total": refreshed, "errors": 0}
 
 
 # ---------------------------------------------------------------------------
-# Daily catalog sync
+# Daily catalog sync (item seeding from wiki/Steam)
 # ---------------------------------------------------------------------------
 
 
@@ -328,7 +311,7 @@ async def run_daily_market_sync(mode: str = "daily") -> None:
 
 
 # ---------------------------------------------------------------------------
-# Startup jobs
+# Startup jobs — seed catalog + immediate first price sync
 # ---------------------------------------------------------------------------
 
 
@@ -337,8 +320,9 @@ async def run_startup_jobs() -> None:
     Coordinated startup task:
     1. Clean up old activity logs.
     2. Seed master_items if table is empty.
+    3. Immediately trigger a full price sync so prices are ready from boot.
     """
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)  # brief pause for DB connections to settle
 
     async with AsyncSessionLocal() as db:
         try:
@@ -355,9 +339,14 @@ async def run_startup_jobs() -> None:
                 logger.info("Startup: master_items empty — triggering initial full seeding.")
                 await run_daily_market_sync(mode="full")
             else:
-                logger.info("Startup: master_items table populated with %d items. Database is ready.", count)
+                logger.info("Startup: master_items table populated with %d items.", count)
         except Exception as exc:
-            logger.error("Startup: error executing startup jobs: %s", exc)
+            logger.error("Startup: error checking master_items: %s", exc)
+
+    # Run immediate full price sync so users see prices right after startup
+    logger.info("Startup: triggering immediate full price sync...")
+    await run_price_full_sync()
+    logger.info("Startup: initial price sync complete.")
 
 
 # ---------------------------------------------------------------------------
@@ -395,13 +384,14 @@ def create_scheduler(interval_minutes: int = 30) -> AsyncIOScheduler:
     """Create and configure the APScheduler instance."""
     scheduler = AsyncIOScheduler()
 
-    # Price batch sync: every 15 minutes at :00, :15, :30, :45
+    # Full price sync: every 30 minutes exactly at :00 and :30
+    # (~935 items = ~10 Search/Render pages = ~30 sec per run)
     scheduler.add_job(
-        run_price_batch_sync,
+        run_price_full_sync,
         trigger="cron",
-        minute="0,15,30,45",
+        minute="0,30",
         id=_JOB_ID,
-        name="Price Batch Sync (rotating)",
+        name="Full Price Sync (all tradable items)",
         replace_existing=True,
         max_instances=1,
         misfire_grace_time=120,
