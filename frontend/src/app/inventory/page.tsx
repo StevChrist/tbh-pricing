@@ -18,7 +18,6 @@ export default function InventoryPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [syncingAll, setSyncingAll] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const triggerRefresh = useCallback(() => {
@@ -53,18 +52,6 @@ export default function InventoryPage() {
     }
   };
 
-  const handleSyncAll = async () => {
-    setSyncingAll(true);
-    try {
-      const { data } = await pricesApi.refreshAll();
-      toast.success(data.message || "Price sync complete.");
-      triggerRefresh();
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setSyncingAll(false);
-    }
-  };
 
   return (
     <div
@@ -116,28 +103,6 @@ export default function InventoryPage() {
           </h1>
 
           <div style={{ display: "flex", gap: "12px" }}>
-            <button
-              onClick={handleSyncAll}
-              disabled={syncingAll}
-              style={{
-                height: "38px",
-                padding: "0 16px",
-                borderRadius: "8px",
-                border: "1px solid var(--cyan-highlight)",
-                backgroundColor: "transparent",
-                color: "var(--cyan-highlight)",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: syncingAll ? "not-allowed" : "pointer",
-                opacity: syncingAll ? 0.6 : 1,
-              }}
-            >
-              <RefreshCw size={16} className={syncingAll ? "animate-spin" : ""} />
-              Sync Prices
-            </button>
             <button
               onClick={handleExport}
               disabled={exporting}

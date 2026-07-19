@@ -104,10 +104,11 @@ async def browse_items(
     browse_items = []
     for item in items:
         price_data = await crud.get_latest_price(db, item.id)
+        # Set dynamic fields on ORM model so Pydantic from_attributes handles it correctly
+        item.lowest_price_usd = price_data.lowest_price_usd if price_data else None
+        item.median_price_usd = price_data.median_price_usd if price_data else None
+        
         browse_result = ItemBrowseResult.model_validate(item)
-        if price_data:
-            browse_result.lowest_price_usd = price_data.lowest_price_usd
-            browse_result.median_price_usd = price_data.median_price_usd
         browse_items.append(browse_result)
     
     return ItemsBrowsePage(

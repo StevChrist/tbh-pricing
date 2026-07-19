@@ -35,10 +35,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
-def _build_inventory_response(inv, price) -> InventoryResponse:
+def _build_inventory_response(inv, price, system_last_run_at: datetime | None = None) -> InventoryResponse:
     """Build an InventoryResponse from ORM objects."""
     latest_price = None
     if price:
+        # For tradable items, align the display update time with the last system run time
+        fetched_at_val = price.fetched_at
+        if system_last_run_at and inv.master_item.market_hash_name:
+            fetched_at_val = system_last_run_at
+
         latest_price = PriceSnapshot(
             id=price.id or price.master_item_id,
             master_item_id=price.master_item_id,
@@ -48,7 +53,7 @@ def _build_inventory_response(inv, price) -> InventoryResponse:
             median_price_usd=price.median_price_usd,
             volume=price.volume,
             fetch_status=price.fetch_status,
-            fetched_at=price.fetched_at or datetime.now(timezone.utc),
+            fetched_at=fetched_at_val or datetime.now(timezone.utc),
         )
     return InventoryResponse(
         id=inv.id,
@@ -60,6 +65,7 @@ def _build_inventory_response(inv, price) -> InventoryResponse:
         master_item=inv.master_item,
         latest_price=latest_price,
     )
+
 
 
 @router.get("/summary", response_model=InventorySummary)
@@ -76,6 +82,16 @@ async def get_summary(
     return InventorySummary(**data)
 
 
+async def _get_system_last_run_at(db: AsyncSession) -> datetime | None:
+    last_val = await crud.get_setting(db, "last_run_at")
+    if last_val:
+        try:
+            return datetime.fromisoformat(last_val)
+        except ValueError:
+            pass
+    return None
+
+
 @router.get("", response_model=list[InventoryResponse])
 async def list_inventory(
     db: AsyncSession = Depends(get_db),
@@ -86,7 +102,8 @@ async def list_inventory(
     each joined with the latest price snapshot (IDR + USD).
     """
     rows = await crud.get_inventory_with_latest_prices(db, current_user.id)
-    return [_build_inventory_response(r["inventory"], r["price"]) for r in rows]
+    system_last_run = await _get_system_last_run_at(db)
+    return [_build_inventory_response(r["inventory"], r["price"], system_last_run) for r in rows]
 
 
 @router.post("", response_model=InventoryResponse, status_code=status.HTTP_201_CREATED)
@@ -133,6 +150,7 @@ async def add_inventory_item(
         )
 
     price = await crud.get_latest_price(db, inv.master_item_id)
+    system_last_run = await _get_system_last_run_at(db)
 
     await crud.log_activity(
         db,
@@ -144,7 +162,8 @@ async def add_inventory_item(
     )
     await db.commit()
 
-    return _build_inventory_response(inv, price)
+    return _build_inventory_response(inv, price, system_last_run)
+
 
 
 @router.post("/bulk", response_model=BulkAddResult, status_code=status.HTTP_201_CREATED)
@@ -161,6 +180,7 @@ async def bulk_add_inventory(
     added: list[InventoryResponse] = []
     skipped_duplicates: list[int] = []
     errors: list[str] = []
+    system_last_run = await _get_system_last_run_at(db)
 
     for entry in body.items:
         master = await crud.get_master_item_by_id(db, entry.master_item_id)
@@ -185,7 +205,7 @@ async def bulk_add_inventory(
             )
             await db.refresh(inv, ["master_item"])
             price = await crud.get_latest_price(db, inv.master_item_id)
-            added.append(_build_inventory_response(inv, price))
+            added.append(_build_inventory_response(inv, price, system_last_run))
         except IntegrityError:
             await db.rollback()
             skipped_duplicates.append(entry.master_item_id)
@@ -229,6 +249,7 @@ async def update_inventory_item(
     inv = await crud.update_inventory_item(db, inv, body.quantity, body.notes)
     await db.refresh(inv, ["master_item"])
     price = await crud.get_latest_price(db, inv.master_item_id)
+    system_last_run = await _get_system_last_run_at(db)
 
     await crud.log_activity(
         db,
@@ -240,7 +261,7 @@ async def update_inventory_item(
     )
     await db.commit()
 
-    return _build_inventory_response(inv, price)
+    return _build_inventory_response(inv, price, system_last_run)
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

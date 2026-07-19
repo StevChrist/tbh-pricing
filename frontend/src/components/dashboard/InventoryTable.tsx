@@ -585,7 +585,7 @@ export function InventoryTable({
 }: InventoryTableProps) {
   const [internalItems, setItems] = useState<InventoryItem[]>([]);
   const [internalLoading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState<number | null>(null);
+
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [alertItem, setAlertItem] = useState<InventoryItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<{ id: number; name: string } | null>(null);
@@ -646,19 +646,6 @@ export function InventoryTable({
     }
   }, [deleteItem, onRefresh]);
 
-  const handleRefreshOne = useCallback(async (masterItemId: number, id: number) => {
-    setRefreshing(id);
-    try {
-      await pricesApi.refreshOne(masterItemId);
-      await fetchInventory();
-      toast.success("Price updated.");
-      onRefresh?.();
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setRefreshing(null);
-    }
-  }, [fetchInventory, onRefresh]);
 
   const handleSaveEdit = useCallback(async (id: number, quantity: number, notes: string) => {
     try {
@@ -907,14 +894,6 @@ export function InventoryTable({
           cell: ({ row }) => (
             <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" }}>
               <button
-                onClick={() => handleRefreshOne(row.original.master_item_id, row.original.id)}
-                disabled={refreshing === row.original.id}
-                title="Refresh price"
-                style={{ color: "var(--accent-blue)" }}
-              >
-                <RefreshCw size={14} className={refreshing === row.original.id ? "animate-spin" : ""} />
-              </button>
-              <button
                 onClick={() => setAlertItem(row.original)}
                 title="Set Price Alert"
                 style={{ color: "var(--accent-orange)" }}
@@ -946,8 +925,6 @@ export function InventoryTable({
     toggleSelectAll,
     toggleSelect,
     readOnly,
-    refreshing,
-    handleRefreshOne,
     handleDelete,
   ]);
 
