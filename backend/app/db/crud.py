@@ -210,7 +210,7 @@ async def get_master_items(
         else:
             stmt = stmt.order_by(order_col.asc().nullslast(), MasterItem.display_name.asc())
     elif sort_by == "price":
-        order_col = MarketSummary.lowest_price_usd
+        order_col = MarketSummary.latest_price_usd
         if is_desc:
             stmt = stmt.order_by(order_col.desc().nullslast(), MasterItem.display_name.desc())
         else:
